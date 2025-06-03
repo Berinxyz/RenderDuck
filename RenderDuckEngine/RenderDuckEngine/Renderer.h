@@ -113,6 +113,8 @@ private:
     FrameResource* m_CurrFrameResource = nullptr;
     int m_CurrFrameResourceIndex = 0;
 
+    CD3DX12_GPU_DESCRIPTOR_HANDLE m_MainView;
+
     ComPtr<ID3D12RootSignature> m_RootSignature = nullptr;
     ComPtr<ID3D12RootSignature> m_SsaoRootSignature = nullptr;
 

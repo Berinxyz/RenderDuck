@@ -295,6 +295,7 @@ void Renderer::Draw(const GameTimer& gt)
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
+    // Draw Imui
     DrawImgui();
 
     // Done recording commands.
@@ -332,7 +333,26 @@ void Renderer::DrawImgui()
     ImGui::Checkbox("Demo Window", &m_ShowDemoWindow);
     ImGui::End();
 
-    //ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+    ImGui::Begin("Viewport");
+    float texWidth = m_Ssao->SsaoMapWidth();
+    float texHeight = m_Ssao->SsaoMapHeight();
+    float width = ImGui::GetWindowWidth();
+    float height = ImGui::GetWindowHeight();
+
+    // resize the texture to allways fit the bounds of the viewport
+    float windowAspect = height / width;
+    float texAspect = texHeight / texWidth;
+    float aspectDiff = windowAspect / texAspect;
+    float imageHeight = texAspect < windowAspect ? width * texAspect : width * texAspect * aspectDiff;
+    float imageWidth = texAspect < windowAspect ? width : width * aspectDiff;
+
+    void* backBufferHandle = &CurrentBackBufferView();
+
+    ImGui::SetCursorPos(ImVec2(width > height ? width / 2.0f - imageWidth / 2.0f : 0.0f, height / 2.0f - imageHeight / 2.0f));
+    ImGui::Image(*(ImTextureID*)&m_Ssao->AmbientMapSrv(), ImVec2(imageWidth, imageHeight));
+    ImGui::End();
+
+    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 
     ImGui::Render();
 
