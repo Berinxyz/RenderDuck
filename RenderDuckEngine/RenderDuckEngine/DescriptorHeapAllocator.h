@@ -41,11 +41,17 @@ struct DescriptorHeapAllocator
         FreeIndices.clear();
     }
 
-    void Alloc(D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu_desc_handle)
+    UINT Alloc()
     {
         assert(FreeIndices.size() > 0);
         int idx = FreeIndices.back();
         FreeIndices.pop_back();
+        return idx;
+    }
+
+    void Alloc(D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu_desc_handle)
+    {
+        int idx = Alloc();
         out_cpu_desc_handle->ptr = HeapStartCpu.ptr + (idx * HeapHandleIncrement);
         if (out_gpu_desc_handle)
         {
@@ -62,4 +68,4 @@ struct DescriptorHeapAllocator
     }
 };
 
-static DescriptorHeapAllocator s_DescriptorHeapAllocator;
+static DescriptorHeapAllocator s_SrvDescriptorHeapAllocator;

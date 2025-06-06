@@ -108,13 +108,15 @@ private:
 
     std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
 
-    UINT CreateSRV(ComPtr<ID3D12Resource> resource, D3D12_SHADER_RESOURCE_VIEW_DESC desc);
+    UINT CreateSrv(ComPtr<ID3D12Resource> resource, D3D12_SHADER_RESOURCE_VIEW_DESC* desc);
 
-    void AllocateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandleStart, u32 descriptorCount);
-    void AllocateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandleStart, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart, u32 descriptorCount);
+    // Descriptor allocators - returns heap index
+    UINT AllocateDescriptor();
+    UINT AllocateDescriptors(u32 descriptorCount);
+    UINT AllocateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandleStart, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart, u32 descriptorCount);
 
-    static void AllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart);
-    static void FreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle);
+    static void ImGuiAllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart);
+    static void ImGuiFreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle);
 
 private:
 

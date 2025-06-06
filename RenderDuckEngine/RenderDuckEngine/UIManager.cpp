@@ -19,14 +19,14 @@ void UIManager::InitStyle()
     ImVec4* colors = style.Colors;
 
     // Corners
-    style.WindowRounding = 8.0f;
-    style.ChildRounding = 8.0f;
-    style.FrameRounding = 6.0f;
-    style.PopupRounding = 6.0f;
-    style.ScrollbarRounding = 6.0f;
-    style.GrabRounding = 6.0f;
-    style.TabRounding = 6.0f;
-
+    style.WindowRounding = 6.0f;
+    style.ChildRounding = 6.0f;
+    style.FrameRounding = 4.0f;
+    style.PopupRounding = 4.0f;
+    style.ScrollbarRounding = 4.0f;
+    style.GrabRounding = 4.0f;
+    style.TabRounding = 4.0f;
+    
     colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
     colors[ImGuiCol_WindowBg] = ImVec4(0.04f, 0.04f, 0.04f, 0.94f);
@@ -37,7 +37,7 @@ void UIManager::InitStyle()
     colors[ImGuiCol_FrameBg] = ImVec4(0.15f, 0.15f, 0.15f, 0.54f);
     colors[ImGuiCol_FrameBgHovered] = ImVec4(0.48f, 0.26f, 0.98f, 0.40f);
     colors[ImGuiCol_FrameBgActive] = ImVec4(0.37f, 0.00f, 1.00f, 1.00f);
-    colors[ImGuiCol_TitleBg] = ImVec4(0.04f, 0.04f, 0.04f, 1.00f);
+    colors[ImGuiCol_TitleBg] = ImVec4(0.14f, 0.04f, 0.28f, 1.00f);
     colors[ImGuiCol_TitleBgActive] = ImVec4(0.21f, 0.16f, 0.48f, 1.00f);
     colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.00f, 0.00f, 0.00f, 0.51f);
     colors[ImGuiCol_MenuBarBg] = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
@@ -113,8 +113,8 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
     // Allocating SRV descriptors (for textures) is up to the application, so we provide callbacks.
     // The example_win32_directx12/main.cpp application include a simple free-list based allocator.
     init_info.SrvDescriptorHeap = descriptorHeap;
-    init_info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu_handle) { return Renderer::AllocateDescriptor(out_cpu_handle, out_gpu_handle); };
-    init_info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle) { return Renderer::FreeDescriptor(cpu_handle, gpu_handle); };
+    init_info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu_handle) { return Renderer::ImGuiAllocateDescriptor(out_cpu_handle, out_gpu_handle); };
+    init_info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle) { return Renderer::ImGuiFreeDescriptor(cpu_handle, gpu_handle); };
 
     ImGui_ImplDX12_Init(&init_info);
 
@@ -141,7 +141,7 @@ void UIManager::DrawGUI(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* back
 
     if (m_Params.m_DockSpace)
     {
-        //ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
     }
 
     EndRender(cmdList, backBuffer);

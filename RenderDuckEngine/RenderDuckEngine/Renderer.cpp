@@ -8,7 +8,7 @@
 #include "GeometryGenerator.h"
 
 const int gNumFrameResources = 3;
-const u32 c_MaxDescriptors = 10000;
+const u32 c_MaxSrvDescriptors = 10000;
 
 
 Renderer::Renderer(HINSTANCE hInstance)
@@ -79,36 +79,37 @@ bool Renderer::Initialize()
     return true;
 }
 
-void Renderer::AllocateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandleStart, u32 descriptorCount)
+UINT Renderer::AllocateDescriptors(u32 descriptorCount)
 {
-    AllocateDescriptors(outCpuHandleStart, nullptr, descriptorCount);
-}
-
-void Renderer::AllocateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandleStart, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart, u32 descriptorCount)
-{
-    D3D12_CPU_DESCRIPTOR_HANDLE tempCpuHandle;
-    D3D12_GPU_DESCRIPTOR_HANDLE tempGpuHandle;
+    UINT startIndex = -1;
     for (int i = 0; i < descriptorCount; ++i)
     {
-        if (i == 0)
+        if (i >  0)
         {
-            AllocateDescriptor(outCpuHandleStart, outGpuHandleStart);
+            AllocateDescriptor();
         }
         else
         {
-            AllocateDescriptor(&tempCpuHandle, &tempGpuHandle);
+            startIndex = AllocateDescriptor();
         }
     }
+
+    return startIndex;
 }
 
-void Renderer::AllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart)
+UINT Renderer::AllocateDescriptor()
 {
-    s_DescriptorHeapAllocator.Alloc(outCpuHandle, outGpuHandleStart);
+    return s_SrvDescriptorHeapAllocator.Alloc();
 }
 
-void Renderer::FreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle)
+void Renderer::ImGuiAllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart)
 {
-    s_DescriptorHeapAllocator.Free(cpu_handle, gpu_handle);
+    s_SrvDescriptorHeapAllocator.Alloc(outCpuHandle, outGpuHandleStart);
+}
+
+void Renderer::ImGuiFreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle)
+{
+    s_SrvDescriptorHeapAllocator.Free(cpuHandle, gpuHandle);
 }
 
 void Renderer::CreateRtvAndDsvDescriptorHeaps()
@@ -820,17 +821,18 @@ void Renderer::BuildDescriptorHeaps()
 	// Create the SRV heap.
 	//
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = c_MaxDescriptors;
+	srvHeapDesc.NumDescriptors = c_MaxSrvDescriptors;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(m_d3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_SrvDescriptorHeap)));
 
-    s_DescriptorHeapAllocator.Create(m_d3dDevice.Get(), m_SrvDescriptorHeap.Get());
+    s_SrvDescriptorHeapAllocator.Create(m_d3dDevice.Get(), m_SrvDescriptorHeap.Get());
+    s_RtvDescriptorHeapAllocator.Create(m_d3dDevice.Get(), m_SrvDescriptorHeap.Get());
+    s_DsvDescriptorHeapAllocator.Create(m_d3dDevice.Get(), m_SrvDescriptorHeap.Get());
 
 	//
 	// Fill out the heap with actual descriptors.
 	//
-	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(m_SrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
 	std::vector<ComPtr<ID3D12Resource>> tex2DList = 
 	{
@@ -841,8 +843,6 @@ void Renderer::BuildDescriptorHeaps()
 		m_Textures["defaultDiffuseMap"]->Resource,
 		m_Textures["defaultNormalMap"]->Resource
 	};
-
-    //AllocateDescriptors(&hDescriptor, tex2DList.size());
 	
 	auto skyCubeMap = m_Textures["skyCubeMap"]->Resource;
 
@@ -857,10 +857,9 @@ void Renderer::BuildDescriptorHeaps()
         {
             srvDesc.Format = tex2DList[i]->GetDesc().Format;
             srvDesc.Texture2D.MipLevels = tex2DList[i]->GetDesc().MipLevels;
-            m_d3dDevice->CreateShaderResourceView(tex2DList[i].Get(), &srvDesc, hDescriptor);
-
-            // next descriptor
-            hDescriptor.Offset(1, m_CbvSrvUavDescriptorSize);
+            //int idx = AllocateDescriptor();
+            //m_d3dDevice->CreateShaderResourceView(tex2DList[i].Get(), &srvDesc, GetCpuSrv(idx));
+            CreateSrv(tex2DList[i].Get(), &srvDesc);
         }
 
         srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
@@ -868,17 +867,16 @@ void Renderer::BuildDescriptorHeaps()
         srvDesc.TextureCube.MipLevels = skyCubeMap->GetDesc().MipLevels;
         srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
         srvDesc.Format = skyCubeMap->GetDesc().Format;
-        m_d3dDevice->CreateShaderResourceView(skyCubeMap.Get(), &srvDesc, hDescriptor);
+        m_SkyTexHeapIndex = CreateSrv(skyCubeMap.Get(), &srvDesc);
 
-        m_SkyTexHeapIndex = (UINT)tex2DList.size();
-        m_ShadowMapHeapIndex = m_SkyTexHeapIndex + 1;
-        m_SsaoHeapIndexStart = m_ShadowMapHeapIndex + 1;
-        m_SsaoAmbientMapIndex = m_SsaoHeapIndexStart + 3;
-        m_NullCubeSrvIndex = m_SsaoHeapIndexStart + 5;
-        m_NullTexSrvIndex1 = m_NullCubeSrvIndex + 1;
-        m_NullTexSrvIndex2 = m_NullTexSrvIndex1 + 1;
-        m_MainRTVIndex = m_NullTexSrvIndex2 + 1;
-        m_MainSRVIndex = m_MainRTVIndex + 1;
+        m_ShadowMapHeapIndex = AllocateDescriptor();
+        m_SsaoHeapIndexStart = AllocateDescriptor();
+        m_SsaoAmbientMapIndex = AllocateDescriptors(3);
+        m_NullCubeSrvIndex = AllocateDescriptors(5);
+        m_NullTexSrvIndex1 = AllocateDescriptor();
+        m_NullTexSrvIndex2 = AllocateDescriptor();
+        m_MainRTVIndex = AllocateDescriptor();
+        m_MainSRVIndex = AllocateDescriptor();
 
         auto nullSrv = GetCpuSrv(m_NullCubeSrvIndex);
         m_NullSrv = GetGpuSrv(m_NullCubeSrvIndex);
@@ -1808,8 +1806,11 @@ std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7> Renderer::GetStaticSamplers()
     };
 }
 
-UINT Renderer::CreateSRV(ComPtr<ID3D12Resource> resource, D3D12_SHADER_RESOURCE_VIEW_DESC desc)
-{
-    return 0;
+UINT Renderer::CreateSrv(ComPtr<ID3D12Resource> resource, D3D12_SHADER_RESOURCE_VIEW_DESC* desc)
+{    
+    UINT idx = AllocateDescriptor();
+    D3D12_CPU_DESCRIPTOR_HANDLE& descriptorHandle = GetCpuSrv(idx);
+    m_d3dDevice->CreateShaderResourceView(resource.Get(), desc, descriptorHandle);
+    return idx;
 }
 
