@@ -827,8 +827,6 @@ void Renderer::BuildDescriptorHeaps()
 	ThrowIfFailed(m_d3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_SrvDescriptorHeap)));
 
     s_SrvDescriptorHeapAllocator.Create(m_d3dDevice.Get(), m_SrvDescriptorHeap.Get());
-    s_RtvDescriptorHeapAllocator.Create(m_d3dDevice.Get(), m_SrvDescriptorHeap.Get());
-    s_DsvDescriptorHeapAllocator.Create(m_d3dDevice.Get(), m_SrvDescriptorHeap.Get());
 
 	//
 	// Fill out the heap with actual descriptors.

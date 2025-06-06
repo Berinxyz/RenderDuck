@@ -85,7 +85,7 @@ void UIManager::InitStyle()
     colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
 
     ImGuiIO& io = ImGui::GetIO();
-    m_DefaultFont = io.Fonts->AddFontFromFileTTF("include\\imgui\\misc\\fonts\\Roboto-Medium.ttf", 15);
+    m_DefaultFont = io.Fonts->AddFontFromFileTTF("include\\imgui\\misc\\fonts\\Roboto-Medium.ttf", 13);
     io.Fonts->Build();
 }
 
