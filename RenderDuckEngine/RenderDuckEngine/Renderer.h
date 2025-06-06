@@ -6,6 +6,9 @@
 #include "Camera.h"
 #include "ShadowMap.h"
 #include "Ssao.h"
+#include "UIManager.h"
+
+#include "DescriptorHeapAllocator.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -55,6 +58,8 @@ enum class RenderLayer : int
 class Renderer : public D3DApp
 {
 public:
+    friend class UIManager;
+
     Renderer(HINSTANCE hInstance);
     Renderer(const Renderer& rhs) = delete;
     Renderer& operator=(const Renderer& rhs) = delete;
@@ -67,8 +72,6 @@ private:
     virtual void OnResize()override;
     virtual void Update(const GameTimer& gt)override;
     virtual void Draw(const GameTimer& gt)override;
-
-    void DrawImgui();
 
     virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
     virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
@@ -105,7 +108,13 @@ private:
 
     std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
 
-    void InitImgui();
+    UINT CreateSRV(ComPtr<ID3D12Resource> resource, D3D12_SHADER_RESOURCE_VIEW_DESC desc);
+
+    void AllocateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandleStart, u32 descriptorCount);
+    void AllocateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandleStart, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart, u32 descriptorCount);
+
+    static void AllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart);
+    static void FreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle);
 
 private:
 
@@ -113,7 +122,15 @@ private:
     FrameResource* m_CurrFrameResource = nullptr;
     int m_CurrFrameResourceIndex = 0;
 
-    CD3DX12_GPU_DESCRIPTOR_HANDLE m_MainView;
+    u32 m_DescriptorCount;
+
+    int m_MainRTVIndex;
+    int m_MainSRVIndex;
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_MainRTV;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE m_MainCpuRtv;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE m_MainCpuSrv;
+    CD3DX12_GPU_DESCRIPTOR_HANDLE m_MainGpuSrv;
 
     ComPtr<ID3D12RootSignature> m_RootSignature = nullptr;
     ComPtr<ID3D12RootSignature> m_SsaoRootSignature = nullptr;
@@ -156,6 +173,8 @@ private:
 
     DirectX::BoundingSphere m_SceneBounds;
 
+    std::unique_ptr<UIManager> m_UIManager;
+
     float m_LightNearZ = 0.0f;
     float m_LightFarZ = 0.0f;
     XMFLOAT3 m_LightPosW;
@@ -172,8 +191,5 @@ private:
     XMFLOAT3 m_RotatedLightDirections[3];
 
     POINT m_LastMousePos;
-
-    // imgui
-    bool m_ShowDemoWindow;
 
 };

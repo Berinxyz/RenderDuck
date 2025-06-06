@@ -19,6 +19,9 @@
     <Filter Include="Inc\ImGui">
       <UniqueIdentifier>{bb6a66c4-8476-4aba-b62a-20fdae3c4c2c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Inc\stb">
+      <UniqueIdentifier>{2a9f9941-41a8-46aa-9903-979957c3cc04}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp">
@@ -160,6 +163,12 @@
     </ClInclude>
     <ClInclude Include="include\imgui\misc\single_file\imgui_single_file.h">
       <Filter>Inc\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="EngineCore.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

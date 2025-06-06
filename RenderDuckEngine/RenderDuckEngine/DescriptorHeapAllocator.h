@@ -47,7 +47,10 @@ struct DescriptorHeapAllocator
         int idx = FreeIndices.back();
         FreeIndices.pop_back();
         out_cpu_desc_handle->ptr = HeapStartCpu.ptr + (idx * HeapHandleIncrement);
-        out_gpu_desc_handle->ptr = HeapStartGpu.ptr + (idx * HeapHandleIncrement);
+        if (out_gpu_desc_handle)
+        {
+            out_gpu_desc_handle->ptr = HeapStartGpu.ptr + (idx * HeapHandleIncrement);
+        }
     }
 
     void Free(D3D12_CPU_DESCRIPTOR_HANDLE out_cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE out_gpu_desc_handle)
@@ -58,3 +61,5 @@ struct DescriptorHeapAllocator
         FreeIndices.push_back(cpu_idx);
     }
 };
+
+static DescriptorHeapAllocator s_DescriptorHeapAllocator;

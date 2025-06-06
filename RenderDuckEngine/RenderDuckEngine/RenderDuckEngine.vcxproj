@@ -164,6 +164,7 @@
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="DescriptorHeapAllocator.h" />
+    <ClInclude Include="EngineCore.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="GameTimer.h" />
     <ClInclude Include="GeometryGenerator.h" />
@@ -181,6 +182,7 @@
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="Ssao.h" />
+    <ClInclude Include="types.h" />
     <ClInclude Include="UIManager.h" />
     <ClInclude Include="UploadBuffer.h" />
   </ItemGroup>
