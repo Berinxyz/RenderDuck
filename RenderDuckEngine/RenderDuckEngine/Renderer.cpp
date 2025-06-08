@@ -64,9 +64,7 @@ bool Renderer::Initialize()
     m_UIManager = std::make_unique<UIManager>();
     m_UIManager->InitialiseForDX12(MainWnd(), m_d3dDevice.Get(), m_CommandQueue.Get(), m_SrvDescriptorHeap.Get(), s_SwapChainBufferCount);
     m_UIManager->InitStyle();
-
-    UIManager::Viewport viewport(m_MainGpuSrv, m_ClientWidth, m_ClientHeight);
-    m_UIManager->CreateViewport(viewport);
+    m_UIManager->CreateViewport();
 
     // Execute the initialization commands.
     ThrowIfFailed(m_CommandList->Close());
@@ -97,19 +95,20 @@ UINT Renderer::AllocateDescriptors(u32 descriptorCount)
     return startIndex;
 }
 
-UINT Renderer::AllocateDescriptor()
+void Renderer::ImGuiAllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandle)
 {
-    return s_SrvDescriptorHeapAllocator.Alloc();
-}
-
-void Renderer::ImGuiAllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart)
-{
-    s_SrvDescriptorHeapAllocator.Alloc(outCpuHandle, outGpuHandleStart);
+    s_SrvDescriptorHeapAllocator.Alloc(outCpuHandle, outGpuHandle);
 }
 
 void Renderer::ImGuiFreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle)
 {
     s_SrvDescriptorHeapAllocator.Free(cpuHandle, gpuHandle);
+
+}
+
+UINT Renderer::AllocateDescriptor()
+{
+    return s_SrvDescriptorHeapAllocator.Alloc();
 }
 
 void Renderer::CreateRtvAndDsvDescriptorHeaps()
@@ -296,7 +295,7 @@ void Renderer::Draw(const GameTimer& gt)
     m_CommandList->SetPipelineState(m_PSOs["opaque"].Get());
     DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
 
-    m_CommandList->SetPipelineState(m_PSOs["debug"].Get());
+    //m_CommandList->SetPipelineState(m_PSOs["debug"].Get());
     //DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Debug]);
 
     // Indicate a state transition on the resource usage.
@@ -307,9 +306,14 @@ void Renderer::Draw(const GameTimer& gt)
         m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), Colors::LightSteelBlue, 0, nullptr);
         m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
     }
+    
+    // submit debug views
+    m_UIManager->SubmitViewportTexture("Scene Normals", m_Ssao->NormalMapSrv(), m_ClientWidth, m_ClientHeight);
+    m_UIManager->SubmitViewportTexture("SSAO", m_Ssao->AmbientMapSrv(), m_ClientWidth, m_ClientHeight);
+    m_UIManager->SubmitViewportTexture(m_UIManager->GetDefaultViewName(), m_MainGpuSrv, m_ClientWidth, m_ClientHeight);
 
     // Draw Imui
-    m_UIManager->DrawGUI(m_CommandList.Get(), CurrentBackBuffer());
+    m_UIManager->Render(m_CommandList.Get(), CurrentBackBuffer());
 
     
     m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
@@ -334,62 +338,6 @@ void Renderer::Draw(const GameTimer& gt)
     // set until the GPU finishes processing all the commands prior to this Signal().
     m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
 }
-
-//void Renderer::DrawImgui()
-//{
-//    ImGui_ImplDX12_NewFrame();
-//    ImGui_ImplWin32_NewFrame();
-//    ImGui::NewFrame();
-//
-//    if (m_ShowDemoWindow)
-//    {
-//        ImGui::ShowDemoWindow(&m_ShowDemoWindow);
-//    }
-//
-//    ImGui::Begin("Hello, world!");
-//    ImGui::Checkbox("Demo Window", &m_ShowDemoWindow);
-//    ImGui::Checkbox("Dock Space", &m_UIManager->GetParams().m_DockSpace);
-//    ImGui::End();
-//
-//    bool open = true;
-//    ImGui::Begin("Viewport", &open, ImGuiWindowFlags_NoScrollbar);
-//    float texWidth = m_Ssao->SsaoMapWidth();
-//    float texHeight = m_Ssao->SsaoMapHeight();
-//    float width = ImGui::GetWindowWidth();
-//    float height = ImGui::GetWindowHeight();
-//
-//    // resize the texture to allways fit the bounds of the viewport
-//    float windowAspect = height / width;
-//    float texAspect = texHeight / texWidth;
-//    float aspectDiff = windowAspect / texAspect;
-//    float imageHeight = texAspect < windowAspect ? width * texAspect : width * texAspect * aspectDiff;
-//    float imageWidth = texAspect < windowAspect ? width : width * aspectDiff;
-//
-//    void* backBufferHandle = &CurrentBackBufferView();
-//    ImGui::SetCursorPos(ImVec2(width > height ? width / 2.0f - imageWidth / 2.0f : 0.0f, height / 2.0f - imageHeight / 2.0f));
-//    ImGui::Image(*(ImTextureID*)&m_MainGpuSrv, ImVec2(imageWidth, imageHeight));
-//    ImGui::End();
-//
-//    if (m_UIManager->GetParams().m_DockSpace)
-//    {
-//        //ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
-//    }
-//
-//    ImGui::Render();
-//
-//    D3D12_RESOURCE_BARRIER barrier = {};
-//    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-//    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-//    barrier.Transition.pResource = CurrentBackBuffer();
-//    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-//    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-//    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-//    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
-//    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-//    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-//    m_CommandList->ResourceBarrier(1, &barrier);
-//
-//}
 
 void Renderer::OnMouseDown(WPARAM btnState, int x, int y)
 {
@@ -855,8 +803,6 @@ void Renderer::BuildDescriptorHeaps()
         {
             srvDesc.Format = tex2DList[i]->GetDesc().Format;
             srvDesc.Texture2D.MipLevels = tex2DList[i]->GetDesc().MipLevels;
-            //int idx = AllocateDescriptor();
-            //m_d3dDevice->CreateShaderResourceView(tex2DList[i].Get(), &srvDesc, GetCpuSrv(idx));
             CreateSrv(tex2DList[i].Get(), &srvDesc);
         }
 

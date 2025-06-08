@@ -5,20 +5,33 @@
 #include "include/imgui/backends/imgui_impl_win32.h"
 #include "include/imgui/backends/imgui_impl_dx12.h"
 
+#include <cstring>
+#include <string>
 #include <unordered_map>
 
-struct ImGuiParams
+
+typedef u32 ViewportHandle;
+typedef u64 ViewportTextureHandle;
+
+struct ViewportTexture
 {
-	ImGuiParams() :
-		m_ShowDemoWindow(false)
-	{ }
+	u32 m_TextureWidth;
+	u32 m_TextureHeight;
+	GPUTextureHandle m_TextureHandle;
+	std::string m_DebugName;
+};
+
+struct ConfigParams
+{
+	ConfigParams()
+		: m_ShowDemoWindow(false)
+		, m_DockSpace(false)
+	{
+	}
 
 	bool m_ShowDemoWindow;
 	bool m_DockSpace;
 };
-
-typedef D3D12_GPU_DESCRIPTOR_HANDLE TextureHandle;
-typedef u32 ViewportHandle;
 
 class UIManager
 {
@@ -26,54 +39,38 @@ public:
 	UIManager();
 	~UIManager();
 
-	struct  Viewport
-	{
-		Viewport() {};
-		Viewport(TextureHandle texHandle, float texWidth, float texHeight)
-			: m_TextureHandle(texHandle)
-		{
-			m_Dimensions.m_TextureHeight = texHeight;
-			m_Dimensions.m_TextureWidth = texWidth;
-		}
-
-		struct Dimensions
-		{
-			float m_TextureWidth;
-			float m_TextureHeight;
-			float m_WindowWidth;
-			float m_WindowHeight;
-		};
-
-		TextureHandle m_TextureHandle;
-		Dimensions m_Dimensions;
-	};
-
 	void InitStyle();
 
 	void InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount);
 
-	void DrawGUI(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer);
-	void DrawViewports();
-	void DrawViewport(Viewport& viewport);
+	void Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer);
 
-	void CreateViewport(Viewport& viewport);
-	ViewportHandle AllocateViewportHandle();
+	void SubmitViewportTexture(std::string textureName, GPUTextureHandle textureHandle, u32 textureWidth, u32 textureHeight);
+	void CreateViewport();
 
-	const ImGuiParams GetParams();
+	const ConfigParams GetParams();
+
+	std::string GetDefaultViewName();
 
 private:
 
 	void BeginRender();
-
 	void EndRender(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer);
+	void CleanUp();
+	// UI Draw functions
+	void DrawViewports();
+	void MainMenuBar();
 
-	ImVec2 CalculateViewportTextureSize(Viewport::Dimensions& const dims);
+	// Utility Functions
+	ViewportTextureHandle GetViewportTextureHandle(std::string debugName);
+	ImVec2 CalculateViewportTextureSize(ImVec2& const textureDims, ImVec2& const windowDims);
+	ImTextureID TexHandleToImTexID(D3D12_GPU_DESCRIPTOR_HANDLE handle);
+	ViewportHandle AllocateViewportHandle();
 
-	ImTextureID TexHandleToImTexID(TextureHandle handle);
+	ConfigParams m_Params;
 
-	ImGuiParams m_Params;
-
-	std::unordered_map<ViewportHandle, Viewport> m_Viewports;
+	std::unordered_map<ViewportHandle, ViewportTextureHandle> m_Viewports;
+	std::unordered_map<ViewportTextureHandle, ViewportTexture> m_ViewportDisplayTextureHandles;
 	ViewportHandle m_NextHandle;
 
 	ImVec4* m_DefaultUIColours;

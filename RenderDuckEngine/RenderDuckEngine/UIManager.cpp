@@ -26,7 +26,7 @@ void UIManager::InitStyle()
     style.ScrollbarRounding = 4.0f;
     style.GrabRounding = 4.0f;
     style.TabRounding = 4.0f;
-    
+
     colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
     colors[ImGuiCol_WindowBg] = ImVec4(0.04f, 0.04f, 0.04f, 0.94f);
@@ -119,18 +119,25 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
     ImGui_ImplDX12_Init(&init_info);
 
     // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsDark();
     //ImGui::StyleColorsLight();
 }
 
-void UIManager::DrawGUI(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer)
+void UIManager::Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer)
 {
     BeginRender();
+
+    if (m_Params.m_DockSpace)
+    {
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+    }
 
     if (m_Params.m_ShowDemoWindow)
     {
         ImGui::ShowDemoWindow(&m_Params.m_ShowDemoWindow);
     }
+
+    MainMenuBar();
 
     ImGui::Begin("Hello, world!");
     ImGui::Checkbox("Demo Window", &m_Params.m_ShowDemoWindow);
@@ -139,41 +146,87 @@ void UIManager::DrawGUI(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* back
 
     DrawViewports();
 
-    if (m_Params.m_DockSpace)
-    {
-        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
-    }
-
     EndRender(cmdList, backBuffer);
+    CleanUp();
 }
 
 void UIManager::DrawViewports()
 {
-    for (auto viewport : m_Viewports)
+    for (auto& viewport : m_Viewports)
     {
-        DrawViewport(viewport.second);
+        ViewportHandle handle = viewport.first;
+        ViewportTextureHandle vpTexHandle = viewport.second;
+        ViewportTexture& vpTex = m_ViewportDisplayTextureHandles[vpTexHandle];
+
+        // Begin the window
+        bool open = true;
+        std::string viewportName = "Viewport##" + std::to_string(handle);
+        ImGui::Begin(viewportName.c_str(), &open, ImGuiWindowFlags_NoScrollbar);
+        float cursorY = ImGui::GetCursorPosY();
+
+        if (vpTexHandle != 0)
+        {
+            // Calculate the image size and position
+            ImVec2 windowDims = ImVec2(ImGui::GetWindowWidth(), ImGui::GetWindowHeight() - cursorY);
+            ImVec2 texDims = ImVec2(vpTex.m_TextureWidth, vpTex.m_TextureHeight);
+            ImVec2 textureSize = CalculateViewportTextureSize(texDims, windowDims);
+            ImVec2 texturePosition = ImVec2(windowDims.x > windowDims.y ? windowDims.x / 2.0f - textureSize.x / 2.0f : 0.0f, windowDims.y / 2.0f - textureSize.y / 2.0f);
+            texturePosition.y += cursorY;
+
+            // Draw the view
+            ImGui::SetCursorPos(texturePosition);
+            ImGui::Image(TexHandleToImTexID(vpTex.m_TextureHandle), textureSize);
+        }
+        // Draw the selection Combo Box
+        ImGui::SetCursorPosY(cursorY);
+        ImGui::PushItemWidth(250.f);
+        if (ImGui::BeginCombo("View", vpTex.m_DebugName.c_str()))
+        {
+            u32 id = 0;
+            ViewportTextureHandle currentSelection = vpTexHandle;
+            for (auto it : m_ViewportDisplayTextureHandles)
+            {
+                const char* debugName = it.second.m_DebugName.c_str();
+                bool isSelected = it.first == currentSelection;
+                ImGui::PushID(id++);
+                if (ImGui::Selectable(debugName, isSelected))
+                {
+                    viewport.second = it.first;
+                }
+                if (isSelected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopItemWidth();
+        ImGui::End();
     }
 }
 
-void UIManager::DrawViewport(Viewport& viewport)
+void UIManager::SubmitViewportTexture(std::string textureName, GPUTextureHandle textureHandle, u32 textureWidth, u32 textureHeight)
 {
-    bool open = true;
-    ImGui::Begin("Viewport", &open, ImGuiWindowFlags_NoScrollbar);
-    Viewport::Dimensions& dim = viewport.m_Dimensions;
-
-    viewport.m_Dimensions.m_WindowHeight = ImGui::GetWindowHeight();
-    viewport.m_Dimensions.m_WindowWidth = ImGui::GetWindowWidth();
-
-    ImVec2 textureSize = CalculateViewportTextureSize(viewport.m_Dimensions);
-    ImVec2 texturePosition = ImVec2(dim.m_WindowWidth > dim.m_WindowHeight ? dim.m_WindowWidth / 2.0f - textureSize.x / 2.0f : 0.0f, dim.m_WindowHeight / 2.0f - textureSize.y / 2.0f);
-    ImGui::SetCursorPos(texturePosition);
-    ImGui::Image(TexHandleToImTexID(viewport.m_TextureHandle), textureSize);
-    ImGui::End();
+    ViewportTextureHandle handle = GetViewportTextureHandle(textureName);
+    if (m_ViewportDisplayTextureHandles.find(handle) == m_ViewportDisplayTextureHandles.end())
+    {
+        ViewportTexture vp;
+        vp.m_TextureHandle = textureHandle;
+        vp.m_TextureWidth = textureWidth;
+        vp.m_TextureHeight = textureHeight;
+        vp.m_DebugName = textureName;
+        m_ViewportDisplayTextureHandles[handle] = vp;
+    }
+    else
+    {
+        assert(false);
+    }
 }
 
-void UIManager::CreateViewport(Viewport& viewport)
+void UIManager::CreateViewport()
 {
-    m_Viewports[AllocateViewportHandle()] = viewport;
+    m_Viewports[AllocateViewportHandle()] = GetViewportTextureHandle(GetDefaultViewName());
 }
 
 ViewportHandle UIManager::AllocateViewportHandle()
@@ -182,9 +235,14 @@ ViewportHandle UIManager::AllocateViewportHandle()
     return handle;
 }
 
-const ImGuiParams UIManager::GetParams()
+const ConfigParams UIManager::GetParams()
 {
     return m_Params;
+}
+
+std::string UIManager::GetDefaultViewName()
+{
+    return "Scene";
 }
 
 void UIManager::BeginRender()
@@ -212,22 +270,79 @@ void UIManager::EndRender(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* ba
     cmdList->ResourceBarrier(1, &barrier);
 }
 
-ImVec2 UIManager::CalculateViewportTextureSize(Viewport::Dimensions& const dims)
+void UIManager::CleanUp()
+{
+    m_ViewportDisplayTextureHandles.clear();
+}
+
+void UIManager::MainMenuBar()
+{
+    if (ImGui::BeginMainMenuBar())
+    {
+        // FILE
+        if (ImGui::BeginMenu("File"))
+        {
+            ImGui::MenuItem("(demo menu)", NULL, false, false);
+            if (ImGui::MenuItem("New")) {}
+            if (ImGui::MenuItem("Open", "Ctrl+O")) {}
+            if (ImGui::BeginMenu("Open Recent"))
+            {
+                ImGui::MenuItem("fish_hat.c");
+                ImGui::MenuItem("fish_hat.inl");
+                ImGui::MenuItem("fish_hat.h");
+                ImGui::EndMenu();
+            }
+            if (ImGui::MenuItem("Save", "Ctrl+S")) {}
+            if (ImGui::MenuItem("Save As..")) {}
+            ImGui::EndMenu();
+        } // end FILE
+
+        // EDIT
+        if (ImGui::BeginMenu("Edit"))
+        {
+            if (ImGui::MenuItem("Undo", "CTRL+Z")) {}
+            if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {} // Disabled item
+            ImGui::Separator();
+            if (ImGui::MenuItem("Cut", "CTRL+X")) {}
+            if (ImGui::MenuItem("Copy", "CTRL+C")) {}
+            if (ImGui::MenuItem("Paste", "CTRL+V")) {}
+            ImGui::EndMenu();
+        }// end EDIT
+
+        // WINDOW
+        if (ImGui::BeginMenu("Edit"))
+        {
+            if (ImGui::MenuItem("Add Viewport"))
+            {
+                CreateViewport();
+            }
+            ImGui::EndMenu();
+        }
+    }
+    ImGui::EndMainMenuBar();
+}
+
+ViewportTextureHandle UIManager::GetViewportTextureHandle(std::string debugName)
+{
+    return std::hash<std::string>{}(debugName);
+}
+
+ImVec2 UIManager::CalculateViewportTextureSize(ImVec2& const textureDims, ImVec2& const windowDims)
 {
     // resize the texture to allways fit the bounds of the viewport
-    float width = dims.m_WindowWidth;
-    float windowAspect = dims.m_WindowHeight / width;
-    float texAspect = dims.m_TextureHeight / dims.m_TextureWidth;
+    float width = windowDims.x;
+    float windowAspect = windowDims.y / width;
+    float texAspect = textureDims.y / textureDims.x;
     float aspectDiff = windowAspect / texAspect;
     float imageHeight = texAspect < windowAspect ? width * texAspect : width * texAspect * aspectDiff;
     float imageWidth = texAspect < windowAspect ? width : width * aspectDiff;
     return ImVec2(imageWidth, imageHeight);
 }
 
-ImTextureID UIManager::TexHandleToImTexID(TextureHandle handle)
+ImTextureID UIManager::TexHandleToImTexID(D3D12_GPU_DESCRIPTOR_HANDLE handle)
 {
     // convert to ImU64 pointer, and dereference
-    TextureHandle* handlePtr = &(handle);
+    D3D12_GPU_DESCRIPTOR_HANDLE* handlePtr = &(handle);
     ImTextureID* ITID = (ImTextureID*)handlePtr;
     return *ITID;
 }

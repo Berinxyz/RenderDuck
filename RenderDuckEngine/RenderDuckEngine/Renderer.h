@@ -1,4 +1,6 @@
 #pragma once
+#include "EngineCore.h"
+
 #include "d3dApp.h"
 #include "d3dUtil.h"
 #include "FrameResource.h"
@@ -13,6 +15,8 @@
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 using namespace DirectX::PackedVector;
+
+
 
 struct RenderItem
 {
@@ -113,7 +117,6 @@ private:
     // Descriptor allocators - returns heap index
     UINT AllocateDescriptor();
     UINT AllocateDescriptors(u32 descriptorCount);
-    UINT AllocateDescriptors(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandleStart, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart, u32 descriptorCount);
 
     static void ImGuiAllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart);
     static void ImGuiFreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle);
