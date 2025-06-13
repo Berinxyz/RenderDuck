@@ -7,11 +7,16 @@
 
 #include <cstring>
 #include <string>
-#include <unordered_map>
 
 
 typedef u32 ViewportHandle;
 typedef u64 ViewportTextureHandle;
+
+struct Viewport
+{
+	ViewportTextureHandle m_TextureHandle;
+	bool m_Open;
+};
 
 struct ViewportTexture
 {
@@ -43,7 +48,9 @@ public:
 
 	void InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount);
 
-	void Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer);
+	void BeginRender();
+	void Render();
+	void EndRender(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer);
 
 	void SubmitViewportTexture(std::string textureName, GPUTextureHandle textureHandle, u32 textureWidth, u32 textureHeight);
 	void CreateViewport();
@@ -53,12 +60,10 @@ public:
 	std::string GetDefaultViewName();
 
 private:
-
-	void BeginRender();
-	void EndRender(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer);
 	void CleanUp();
 	// UI Draw functions
 	void DrawViewports();
+	void DestroyClosedViewports();
 	void MainMenuBar();
 
 	// Utility Functions
@@ -69,7 +74,7 @@ private:
 
 	ConfigParams m_Params;
 
-	std::unordered_map<ViewportHandle, ViewportTextureHandle> m_Viewports;
+	std::unordered_map<ViewportHandle, Viewport> m_Viewports;
 	std::unordered_map<ViewportTextureHandle, ViewportTexture> m_ViewportDisplayTextureHandles;
 	ViewportHandle m_NextHandle;
 

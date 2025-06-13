@@ -2,6 +2,7 @@
 
 #include "Renderer.h"
 
+#include <queue>
 #include <string.h>
 
 UIManager::UIManager()
@@ -11,6 +12,9 @@ UIManager::UIManager()
 
 UIManager::~UIManager()
 {
+    ImGui_ImplDX12_Shutdown();
+    ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
 }
 
 void UIManager::InitStyle()
@@ -123,92 +127,95 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
     //ImGui::StyleColorsLight();
 }
 
-void UIManager::Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer)
+void UIManager::Render()
 {
-    BeginRender();
-
-    if (m_Params.m_DockSpace)
-    {
-        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
-    }
-
-    if (m_Params.m_ShowDemoWindow)
-    {
-        ImGui::ShowDemoWindow(&m_Params.m_ShowDemoWindow);
-    }
-
+    if (m_Params.m_DockSpace) ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
     MainMenuBar();
-
-    ImGui::Begin("Hello, world!");
-    ImGui::Checkbox("Demo Window", &m_Params.m_ShowDemoWindow);
-    ImGui::Checkbox("Dock Space", &m_Params.m_DockSpace);
-    ImGui::End();
-
+    if (m_Params.m_ShowDemoWindow) ImGui::ShowDemoWindow(&m_Params.m_ShowDemoWindow);
     DrawViewports();
-
-    EndRender(cmdList, backBuffer);
-    CleanUp();
 }
-
+ 
 void UIManager::DrawViewports()
 {
     for (auto& viewport : m_Viewports)
     {
         ViewportHandle handle = viewport.first;
-        ViewportTextureHandle vpTexHandle = viewport.second;
+        Viewport& vp = viewport.second;
+        ViewportTextureHandle& vpTexHandle = vp.m_TextureHandle;
         ViewportTexture& vpTex = m_ViewportDisplayTextureHandles[vpTexHandle];
 
         // Begin the window
-        bool open = true;
         std::string viewportName = "Viewport##" + std::to_string(handle);
-        ImGui::Begin(viewportName.c_str(), &open, ImGuiWindowFlags_NoScrollbar);
-        float cursorY = ImGui::GetCursorPosY();
-
-        if (vpTexHandle != 0)
+        if (ImGui::Begin(viewportName.c_str(), &vp.m_Open, ImGuiWindowFlags_NoScrollbar))
         {
-            // Calculate the image size and position
-            ImVec2 windowDims = ImVec2(ImGui::GetWindowWidth(), ImGui::GetWindowHeight() - cursorY);
-            ImVec2 texDims = ImVec2(vpTex.m_TextureWidth, vpTex.m_TextureHeight);
-            ImVec2 textureSize = CalculateViewportTextureSize(texDims, windowDims);
-            ImVec2 texturePosition = ImVec2(windowDims.x > windowDims.y ? windowDims.x / 2.0f - textureSize.x / 2.0f : 0.0f, windowDims.y / 2.0f - textureSize.y / 2.0f);
-            texturePosition.y += cursorY;
+            float cursorY = ImGui::GetCursorPosY();
 
-            // Draw the view
-            ImGui::SetCursorPos(texturePosition);
-            ImGui::Image(TexHandleToImTexID(vpTex.m_TextureHandle), textureSize);
-        }
-        // Draw the selection Combo Box
-        ImGui::SetCursorPosY(cursorY);
-        ImGui::PushItemWidth(250.f);
-        if (ImGui::BeginCombo("View", vpTex.m_DebugName.c_str()))
-        {
-            u32 id = 0;
-            ViewportTextureHandle currentSelection = vpTexHandle;
-            for (auto it : m_ViewportDisplayTextureHandles)
+            if (vpTexHandle != 0)
             {
-                const char* debugName = it.second.m_DebugName.c_str();
-                bool isSelected = it.first == currentSelection;
-                ImGui::PushID(id++);
-                if (ImGui::Selectable(debugName, isSelected))
-                {
-                    viewport.second = it.first;
-                }
-                if (isSelected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-                ImGui::PopID();
+                // Calculate the image size and position
+                ImVec2 windowDims = ImVec2(ImGui::GetWindowWidth(), ImGui::GetWindowHeight() - cursorY);
+                ImVec2 texDims = ImVec2(vpTex.m_TextureWidth, vpTex.m_TextureHeight);
+                ImVec2 textureSize = CalculateViewportTextureSize(texDims, windowDims);
+                ImVec2 texturePosition = ImVec2(windowDims.x > windowDims.y ? windowDims.x / 2.0f - textureSize.x / 2.0f : 0.0f, windowDims.y / 2.0f - textureSize.y / 2.0f);
+                texturePosition.y += cursorY;
+
+                // Draw the view
+                ImGui::SetCursorPos(texturePosition);
+                ImGui::Image(TexHandleToImTexID(vpTex.m_TextureHandle), textureSize);
             }
-            ImGui::EndCombo();
+            // Draw the selection Combo Box
+            ImGui::SetCursorPosY(cursorY);
+            ImGui::PushItemWidth(250.f);
+            if (ImGui::BeginCombo("View", vpTex.m_DebugName.c_str()))
+            {
+                u32 id = 0;
+                ViewportTextureHandle currentSelection = vpTexHandle;
+                for (auto it : m_ViewportDisplayTextureHandles)
+                {
+                    const char* debugName = it.second.m_DebugName.c_str();
+                    bool isSelected = it.first == currentSelection;
+                    ImGui::PushID(id++);
+                    if (ImGui::Selectable(debugName, isSelected))
+                    {
+                        vpTexHandle = it.first;
+                    }
+                    if (isSelected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopItemWidth();
         }
-        ImGui::PopItemWidth();
         ImGui::End();
+    }
+}
+
+void UIManager::DestroyClosedViewports()
+{
+    std::queue<ViewportHandle> viewportsToDestroy;
+    for (auto& it : m_Viewports)
+    {
+        if (!it.second.m_Open)
+        {
+            viewportsToDestroy.emplace(it.first);
+        }
+    }
+
+    while (viewportsToDestroy.size() > 0)
+    {
+        ViewportHandle handle = viewportsToDestroy.front();
+        viewportsToDestroy.pop();
+        m_Viewports.erase(handle);
     }
 }
 
 void UIManager::SubmitViewportTexture(std::string textureName, GPUTextureHandle textureHandle, u32 textureWidth, u32 textureHeight)
 {
     ViewportTextureHandle handle = GetViewportTextureHandle(textureName);
+    assert(m_ViewportDisplayTextureHandles.find(handle) == m_ViewportDisplayTextureHandles.end());
     if (m_ViewportDisplayTextureHandles.find(handle) == m_ViewportDisplayTextureHandles.end())
     {
         ViewportTexture vp;
@@ -226,7 +233,7 @@ void UIManager::SubmitViewportTexture(std::string textureName, GPUTextureHandle 
 
 void UIManager::CreateViewport()
 {
-    m_Viewports[AllocateViewportHandle()] = GetViewportTextureHandle(GetDefaultViewName());
+    m_Viewports[AllocateViewportHandle()] = { GetViewportTextureHandle(GetDefaultViewName()), true }; // default open to true
 }
 
 ViewportHandle UIManager::AllocateViewportHandle()
@@ -268,11 +275,15 @@ void UIManager::EndRender(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* ba
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
     cmdList->ResourceBarrier(1, &barrier);
+
+    CleanUp();
 }
 
 void UIManager::CleanUp()
 {
     m_ViewportDisplayTextureHandles.clear();
+
+    DestroyClosedViewports();
 }
 
 void UIManager::MainMenuBar()
@@ -293,9 +304,8 @@ void UIManager::MainMenuBar()
                 ImGui::EndMenu();
             }
             if (ImGui::MenuItem("Save", "Ctrl+S")) {}
-            if (ImGui::MenuItem("Save As..")) {}
             ImGui::EndMenu();
-        } // end FILE
+        }
 
         // EDIT
         if (ImGui::BeginMenu("Edit"))
@@ -307,15 +317,19 @@ void UIManager::MainMenuBar()
             if (ImGui::MenuItem("Copy", "CTRL+C")) {}
             if (ImGui::MenuItem("Paste", "CTRL+V")) {}
             ImGui::EndMenu();
-        }// end EDIT
+        }
 
         // WINDOW
-        if (ImGui::BeginMenu("Edit"))
+        if (ImGui::BeginMenu("Window"))
         {
-            if (ImGui::MenuItem("Add Viewport"))
-            {
-                CreateViewport();
-            }
+            if (ImGui::MenuItem("Add Viewport")) CreateViewport();
+            if (ImGui::MenuItem("Show Demo")) m_Params.m_ShowDemoWindow = !m_Params.m_ShowDemoWindow;
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Options"))
+        {
+            if (ImGui::MenuItem("Dockspace")) m_Params.m_DockSpace = !m_Params.m_DockSpace;
             ImGui::EndMenu();
         }
     }

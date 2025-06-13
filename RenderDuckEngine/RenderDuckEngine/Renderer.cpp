@@ -14,6 +14,8 @@ const u32 c_MaxSrvDescriptors = 10000;
 Renderer::Renderer(HINSTANCE hInstance)
     : D3DApp(hInstance)
     , m_DescriptorCount(0)
+    , m_MainRTVIndex(-1)
+    , m_MainSRVIndex(-1)
 {
     // Estimate the scene bounding sphere manually since we know how the scene was constructed.
     // The grid is the "widest object" with a width of 20 and depth of 30.0f, and centered at
@@ -106,6 +108,58 @@ void Renderer::ImGuiFreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_
 
 }
 
+void Renderer::BuildMainRTV()
+{
+    if (m_MainRTVIndex == -1)
+    {
+        return;
+    }
+
+    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+    rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+    rtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    rtvDesc.Texture2D.MipSlice = 0;
+    rtvDesc.Texture2D.PlaneSlice = 0;
+
+    D3D12_RESOURCE_DESC texDesc;
+    ZeroMemory(&texDesc, sizeof(D3D12_RESOURCE_DESC));
+    texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    texDesc.Alignment = 0;
+    texDesc.Width = m_ClientWidth;
+    texDesc.Height = m_ClientHeight;
+    texDesc.DepthOrArraySize = 1;
+    texDesc.MipLevels = 1;
+    texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    texDesc.SampleDesc.Count = 1;
+    texDesc.SampleDesc.Quality = 0;
+    texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+    float ambientClearColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    CD3DX12_CLEAR_VALUE optClear = CD3DX12_CLEAR_VALUE(rtvDesc.Format, ambientClearColor);
+    ThrowIfFailed(m_d3dDevice->CreateCommittedResource(
+        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+        D3D12_HEAP_FLAG_NONE,
+        &texDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        &optClear,
+        IID_PPV_ARGS(&m_MainRTV)));
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = 1;
+
+    m_MainCpuSrv = GetCpuSrv(m_MainRTVIndex);
+    m_MainGpuSrv = GetGpuSrv(m_MainRTVIndex);
+    m_MainCpuRtv = GetRtv(s_SwapChainBufferCount + 3);
+
+    m_d3dDevice->CreateRenderTargetView(m_MainRTV.Get(), &rtvDesc, m_MainCpuRtv);
+    m_d3dDevice->CreateShaderResourceView(m_MainRTV.Get(), &srvDesc, m_MainCpuSrv);
+}
+
 UINT Renderer::AllocateDescriptor()
 {
     return s_SrvDescriptorHeapAllocator.Alloc();
@@ -137,6 +191,8 @@ void Renderer::OnResize()
     D3DApp::OnResize();
 
 	m_Camera.SetLens(0.25f*MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
+
+    BuildMainRTV();
 
     if(m_Ssao != nullptr)
     {
@@ -203,6 +259,8 @@ void Renderer::Draw(const GameTimer& gt)
     ID3D12DescriptorHeap* descriptorHeaps[] = { m_SrvDescriptorHeap.Get() };
     m_CommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
+    m_UIManager->BeginRender();
+
     m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
 
 	//
@@ -224,23 +282,16 @@ void Renderer::Draw(const GameTimer& gt)
 
     DrawSceneToShadowMap();
 
-	//
-	// Normal/depth pass.
-	//
-	
+	// Normal/depth pass.	
 	DrawNormalsAndDepth();
 	
-	//
-	// Compute SSAO.
-	// 
-	
+
+	// Compute SSAO.	
     m_CommandList->SetGraphicsRootSignature(m_SsaoRootSignature.Get());
-    m_Ssao->ComputeSsao(m_CommandList.Get(), m_CurrFrameResource, 3);
+    m_Ssao->ComputeSsao(m_CommandList.Get(), m_CurrFrameResource, 0);
 	
-	//
-	// Main rendering pass.
-	//
-	
+
+	// Main rendering pass.	
     m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
 
     // Rebind state whenever graphics root signature changes.
@@ -313,11 +364,8 @@ void Renderer::Draw(const GameTimer& gt)
     m_UIManager->SubmitViewportTexture(m_UIManager->GetDefaultViewName(), m_MainGpuSrv, m_ClientWidth, m_ClientHeight);
 
     // Draw Imui
-    m_UIManager->Render(m_CommandList.Get(), CurrentBackBuffer());
-
-    
-    m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-        D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+    m_UIManager->Render();
+    m_UIManager->EndRender(m_CommandList.Get(), CurrentBackBuffer());
 
     // Done recording commands.
     ThrowIfFailed(m_CommandList->Close());
@@ -852,49 +900,7 @@ void Renderer::BuildDescriptorHeaps()
             m_RtvDescriptorSize);
     }
 
-    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
-    rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-    rtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    rtvDesc.Texture2D.MipSlice = 0;
-    rtvDesc.Texture2D.PlaneSlice = 0;
-
-    D3D12_RESOURCE_DESC texDesc;
-    ZeroMemory(&texDesc, sizeof(D3D12_RESOURCE_DESC));
-    texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    texDesc.Alignment = 0;
-    texDesc.Width = m_ClientWidth;
-    texDesc.Height = m_ClientHeight;
-    texDesc.DepthOrArraySize = 1;
-    texDesc.MipLevels = 1;
-    texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    texDesc.SampleDesc.Count = 1;
-    texDesc.SampleDesc.Quality = 0;
-    texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-
-    float ambientClearColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    CD3DX12_CLEAR_VALUE optClear = CD3DX12_CLEAR_VALUE(rtvDesc.Format, ambientClearColor);
-    ThrowIfFailed(m_d3dDevice->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-        D3D12_HEAP_FLAG_NONE,
-        &texDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        &optClear,
-        IID_PPV_ARGS(&m_MainRTV)));
-
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-    srvDesc.Texture2D.MipLevels = 1;
-
-    m_MainCpuSrv = GetCpuSrv(m_MainRTVIndex);
-    m_MainGpuSrv = GetGpuSrv(m_MainRTVIndex);
-    m_MainCpuRtv = GetRtv(s_SwapChainBufferCount + 3);
-
-    m_d3dDevice->CreateRenderTargetView(m_MainRTV.Get(), &rtvDesc, m_MainCpuRtv);
-    m_d3dDevice->CreateShaderResourceView(m_MainRTV.Get(), &srvDesc, m_MainCpuSrv);
+    BuildMainRTV();
 }
 
 void Renderer::BuildShadersAndInputLayout()
@@ -1499,70 +1505,40 @@ void Renderer::BuildRenderItems()
 	m_AllRitems.push_back(std::move(gridRitem));
 
 	XMMATRIX brickTexTransform = XMMatrixScaling(1.5f, 2.0f, 1.0f);
-	UINT objCBIndex = 5;
-	for(int i = 0; i < 5; ++i)
-	{
-		auto leftCylRitem = std::make_unique<RenderItem>();
-		auto rightCylRitem = std::make_unique<RenderItem>();
-		auto leftSphereRitem = std::make_unique<RenderItem>();
-		auto rightSphereRitem = std::make_unique<RenderItem>();
+	auto leftCylRitem = std::make_unique<RenderItem>();
+	auto leftSphereRitem = std::make_unique<RenderItem>();
 
-		XMMATRIX leftCylWorld = XMMatrixTranslation(-5.0f, 1.5f, -10.0f + i*5.0f);
-		XMMATRIX rightCylWorld = XMMatrixTranslation(+5.0f, 1.5f, -10.0f + i*5.0f);
+	XMMATRIX leftCylWorld = XMMatrixTranslation(-5.0f, 1.5f, -10.0f + 5.0f);
+	XMMATRIX rightCylWorld = XMMatrixTranslation(+5.0f, 1.5f, -10.0f + 5.0f);
 
-		XMMATRIX leftSphereWorld = XMMatrixTranslation(-5.0f, 3.5f, -10.0f + i*5.0f);
-		XMMATRIX rightSphereWorld = XMMatrixTranslation(+5.0f, 3.5f, -10.0f + i*5.0f);
+	XMMATRIX leftSphereWorld = XMMatrixTranslation(-5.0f, 3.5f, -10.0f + 5.0f);
+	XMMATRIX rightSphereWorld = XMMatrixTranslation(+5.0f, 3.5f, -10.0f + 5.0f);
 
-		XMStoreFloat4x4(&leftCylRitem->m_World, rightCylWorld);
-		XMStoreFloat4x4(&leftCylRitem->m_TexTransform, brickTexTransform);
-		leftCylRitem->m_ObjCBIndex = objCBIndex++;
-		leftCylRitem->m_Mat = m_Materials["bricks0"].get();
-		leftCylRitem->m_Geo = m_Geometries["shapeGeo"].get();
-		leftCylRitem->m_PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		leftCylRitem->m_IndexCount = leftCylRitem->m_Geo->DrawArgs["cylinder"].IndexCount;
-		leftCylRitem->m_StartIndexLocation = leftCylRitem->m_Geo->DrawArgs["cylinder"].StartIndexLocation;
-		leftCylRitem->m_BaseVertexLocation = leftCylRitem->m_Geo->DrawArgs["cylinder"].BaseVertexLocation;
+	XMStoreFloat4x4(&leftCylRitem->m_World, rightCylWorld);
+	XMStoreFloat4x4(&leftCylRitem->m_TexTransform, brickTexTransform);
+	leftCylRitem->m_ObjCBIndex = 5;
+	leftCylRitem->m_Mat = m_Materials["bricks0"].get();
+	leftCylRitem->m_Geo = m_Geometries["shapeGeo"].get();
+	leftCylRitem->m_PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	leftCylRitem->m_IndexCount = leftCylRitem->m_Geo->DrawArgs["cylinder"].IndexCount;
+	leftCylRitem->m_StartIndexLocation = leftCylRitem->m_Geo->DrawArgs["cylinder"].StartIndexLocation;
+	leftCylRitem->m_BaseVertexLocation = leftCylRitem->m_Geo->DrawArgs["cylinder"].BaseVertexLocation;
 
-		XMStoreFloat4x4(&rightCylRitem->m_World, leftCylWorld);
-		XMStoreFloat4x4(&rightCylRitem->m_TexTransform, brickTexTransform);
-		rightCylRitem->m_ObjCBIndex = objCBIndex++;
-		rightCylRitem->m_Mat = m_Materials["bricks0"].get();
-		rightCylRitem->m_Geo = m_Geometries["shapeGeo"].get();
-		rightCylRitem->m_PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		rightCylRitem->m_IndexCount = rightCylRitem->m_Geo->DrawArgs["cylinder"].IndexCount;
-		rightCylRitem->m_StartIndexLocation = rightCylRitem->m_Geo->DrawArgs["cylinder"].StartIndexLocation;
-		rightCylRitem->m_BaseVertexLocation = rightCylRitem->m_Geo->DrawArgs["cylinder"].BaseVertexLocation;
+	XMStoreFloat4x4(&leftSphereRitem->m_World, leftSphereWorld);
+	leftSphereRitem->m_TexTransform = MathHelper::Identity4x4();
+	leftSphereRitem->m_ObjCBIndex = 6;
+	leftSphereRitem->m_Mat = m_Materials["mirror0"].get();
+	leftSphereRitem->m_Geo = m_Geometries["shapeGeo"].get();
+	leftSphereRitem->m_PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	leftSphereRitem->m_IndexCount = leftSphereRitem->m_Geo->DrawArgs["sphere"].IndexCount;
+	leftSphereRitem->m_StartIndexLocation = leftSphereRitem->m_Geo->DrawArgs["sphere"].StartIndexLocation;
+	leftSphereRitem->m_BaseVertexLocation = leftSphereRitem->m_Geo->DrawArgs["sphere"].BaseVertexLocation;
 
-		XMStoreFloat4x4(&leftSphereRitem->m_World, leftSphereWorld);
-		leftSphereRitem->m_TexTransform = MathHelper::Identity4x4();
-		leftSphereRitem->m_ObjCBIndex = objCBIndex++;
-		leftSphereRitem->m_Mat = m_Materials["mirror0"].get();
-		leftSphereRitem->m_Geo = m_Geometries["shapeGeo"].get();
-		leftSphereRitem->m_PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		leftSphereRitem->m_IndexCount = leftSphereRitem->m_Geo->DrawArgs["sphere"].IndexCount;
-		leftSphereRitem->m_StartIndexLocation = leftSphereRitem->m_Geo->DrawArgs["sphere"].StartIndexLocation;
-		leftSphereRitem->m_BaseVertexLocation = leftSphereRitem->m_Geo->DrawArgs["sphere"].BaseVertexLocation;
+	m_RitemLayer[(int)RenderLayer::Opaque].push_back(leftCylRitem.get());
+	m_RitemLayer[(int)RenderLayer::Opaque].push_back(leftSphereRitem.get());
 
-		XMStoreFloat4x4(&rightSphereRitem->m_World, rightSphereWorld);
-		rightSphereRitem->m_TexTransform = MathHelper::Identity4x4();
-		rightSphereRitem->m_ObjCBIndex = objCBIndex++;
-		rightSphereRitem->m_Mat = m_Materials["mirror0"].get();
-		rightSphereRitem->m_Geo = m_Geometries["shapeGeo"].get();
-		rightSphereRitem->m_PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		rightSphereRitem->m_IndexCount = rightSphereRitem->m_Geo->DrawArgs["sphere"].IndexCount;
-		rightSphereRitem->m_StartIndexLocation = rightSphereRitem->m_Geo->DrawArgs["sphere"].StartIndexLocation;
-		rightSphereRitem->m_BaseVertexLocation = rightSphereRitem->m_Geo->DrawArgs["sphere"].BaseVertexLocation;
-
-		m_RitemLayer[(int)RenderLayer::Opaque].push_back(leftCylRitem.get());
-		m_RitemLayer[(int)RenderLayer::Opaque].push_back(rightCylRitem.get());
-		m_RitemLayer[(int)RenderLayer::Opaque].push_back(leftSphereRitem.get());
-		m_RitemLayer[(int)RenderLayer::Opaque].push_back(rightSphereRitem.get());
-
-		m_AllRitems.push_back(std::move(leftCylRitem));
-		m_AllRitems.push_back(std::move(rightCylRitem));
-		m_AllRitems.push_back(std::move(leftSphereRitem));
-		m_AllRitems.push_back(std::move(rightSphereRitem));
-	}
+	m_AllRitems.push_back(std::move(leftCylRitem));
+	m_AllRitems.push_back(std::move(leftSphereRitem));
 }
 
 void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)

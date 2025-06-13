@@ -3,6 +3,10 @@
 #include "d3dApp.h"
 #include <WindowsX.h>
 
+#include "include/imgui/imgui.h"
+#include "include/imgui/backends/imgui_impl_win32.h"
+#include "include/imgui/backends/imgui_impl_dx12.h"
+
 using Microsoft::WRL::ComPtr;
 using namespace std;
 using namespace DirectX;
@@ -235,6 +239,10 @@ void D3DApp::OnResize()
  
 LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
+		return true;
+
 	switch( msg )
 	{
 	// WM_ACTIVATE is sent when the window is activated or deactivated.  

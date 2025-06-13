@@ -22,6 +22,9 @@
     <Filter Include="Inc\stb">
       <UniqueIdentifier>{2a9f9941-41a8-46aa-9903-979957c3cc04}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{05f122fc-5f3b-4766-9400-234ad1c0d725}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp">
@@ -86,6 +89,9 @@
     </ClCompile>
     <ClCompile Include="include\imgui\misc\cpp\imgui_stdlib.cpp">
       <Filter>Inc\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="LightManager.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -168,6 +174,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="EngineCore.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LightManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OutputLog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

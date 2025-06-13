@@ -123,6 +123,8 @@ private:
 
 private:
 
+    void BuildMainRTV();
+
     std::vector<std::unique_ptr<FrameResource>> m_FrameResources;
     FrameResource* m_CurrFrameResource = nullptr;
     int m_CurrFrameResourceIndex = 0;

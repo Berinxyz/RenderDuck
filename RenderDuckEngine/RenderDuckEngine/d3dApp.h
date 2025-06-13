@@ -72,6 +72,7 @@ protected:
     void LogAdapterOutputs(IDXGIAdapter* adapter);
     void LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format);
 
+    bool FormatIsUAVCompatible();
 protected:
 
     static D3DApp* s_App;
@@ -118,7 +119,7 @@ protected:
 	UINT m_CbvSrvUavDescriptorSize = 0;
 
 	// Derived class should set these in derived constructor to customize starting values.
-	std::wstring m_MainWndCaption = L"d3d App";
+	std::wstring m_MainWndCaption = L"RenderDuck";
 	D3D_DRIVER_TYPE m_d3dDriverType = D3D_DRIVER_TYPE_HARDWARE;
     DXGI_FORMAT m_BackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
