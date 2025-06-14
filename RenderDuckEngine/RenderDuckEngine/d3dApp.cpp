@@ -516,7 +516,7 @@ void D3DApp::CreateSwapChain()
     DXGI_SWAP_CHAIN_DESC sd;
     sd.BufferDesc.Width = m_ClientWidth;
     sd.BufferDesc.Height = m_ClientHeight;
-    sd.BufferDesc.RefreshRate.Numerator = 60;
+    sd.BufferDesc.RefreshRate.Numerator = 144;
     sd.BufferDesc.RefreshRate.Denominator = 1;
     sd.BufferDesc.Format = m_BackBufferFormat;
     sd.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;

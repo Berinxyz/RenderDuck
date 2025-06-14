@@ -2,8 +2,13 @@
 
 #include "Renderer.h"
 
+#include <functional>
 #include <queue>
 #include <string.h>
+
+typedef std::function<void()> VoidFunc;
+typedef std::pair<VoidFunc, VoidFunc> VoidFuncPair;
+
 
 UIManager::UIManager()
     : m_NextHandle(-1)
@@ -129,9 +134,12 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
 
 void UIManager::Render()
 {
-    if (m_Params.m_DockSpace) ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
-    MainMenuBar();
-    if (m_Params.m_ShowDemoWindow) ImGui::ShowDemoWindow(&m_Params.m_ShowDemoWindow);
+    if (m_Settings.m_DockSpace.GetValue()) ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+
+    if (m_ActiveWindows.m_ShowDemoWindow) ImGui::ShowDemoWindow(&m_ActiveWindows.m_ShowDemoWindow);    
+    
+    MainMenuBar();       
+    SettingsWindow();
     DrawViewports();
 }
  
@@ -146,6 +154,7 @@ void UIManager::DrawViewports()
 
         // Begin the window
         std::string viewportName = "Viewport##" + std::to_string(handle);
+        ImGui::SetNextWindowSize(ImVec2(1280, 720), ImGuiCond_FirstUseEver);
         if (ImGui::Begin(viewportName.c_str(), &vp.m_Open, ImGuiWindowFlags_NoScrollbar))
         {
             float cursorY = ImGui::GetCursorPosY();
@@ -242,11 +251,6 @@ ViewportHandle UIManager::AllocateViewportHandle()
     return handle;
 }
 
-const ConfigParams UIManager::GetParams()
-{
-    return m_Params;
-}
-
 std::string UIManager::GetDefaultViewName()
 {
     return "Scene";
@@ -316,6 +320,8 @@ void UIManager::MainMenuBar()
             if (ImGui::MenuItem("Cut", "CTRL+X")) {}
             if (ImGui::MenuItem("Copy", "CTRL+C")) {}
             if (ImGui::MenuItem("Paste", "CTRL+V")) {}
+            ImGui::Separator();
+            if (ImGui::MenuItem("Settings")) m_ActiveWindows.m_SettingsWindow = !m_ActiveWindows.m_SettingsWindow;
             ImGui::EndMenu();
         }
 
@@ -323,17 +329,94 @@ void UIManager::MainMenuBar()
         if (ImGui::BeginMenu("Window"))
         {
             if (ImGui::MenuItem("Add Viewport")) CreateViewport();
-            if (ImGui::MenuItem("Show Demo")) m_Params.m_ShowDemoWindow = !m_Params.m_ShowDemoWindow;
-            ImGui::EndMenu();
-        }
-
-        if (ImGui::BeginMenu("Options"))
-        {
-            if (ImGui::MenuItem("Dockspace")) m_Params.m_DockSpace = !m_Params.m_DockSpace;
+            if (ImGui::MenuItem("Dockspace")) m_Settings.m_DockSpace.m_Value = !m_Settings.m_DockSpace.m_Value;
+            ImGui::Separator();
+            if (ImGui::MenuItem("Show Demo")) m_ActiveWindows.m_ShowDemoWindow = !m_ActiveWindows.m_ShowDemoWindow;
             ImGui::EndMenu();
         }
     }
     ImGui::EndMainMenuBar();
+}
+
+void UIManager::SettingsWindow()
+{
+    if (m_ActiveWindows.m_SettingsWindow)
+    {
+        ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiCond_FirstUseEver);
+        if (ImGui::Begin("Settings", &m_ActiveWindows.m_SettingsWindow, ImGuiWindowFlags_MenuBar))
+        {
+            std::unordered_map<std::string, std::function<void(UIManager&)>> settingsPageMap =
+            {
+                { "Scene", &UIManager::SceneSettingsPage }
+            };
+
+            // Left
+            static std::string selected = settingsPageMap.size() > 0 ? settingsPageMap.begin()->first : "";
+            {
+                ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
+                // FIXME: Good candidate to use ImGuiSelectableFlags_SelectOnNav
+                for (auto& it : settingsPageMap)
+                {
+                    std::string categoryName = it.first;
+                    if (ImGui::Selectable(categoryName.c_str(), selected == categoryName))
+                    {
+                        selected = categoryName;
+                    }
+                }
+                ImGui::EndChild();
+            }
+            ImGui::SameLine();
+
+            // Right
+            // call settings page function
+            ImGui::BeginGroup();
+            ImGui::BeginChild("item view", ImVec2(0, -ImGui::GetFrameHeightWithSpacing())); // Leave room for 1 line below us
+            settingsPageMap[selected](*this);
+            ImGui::EndChild();
+            ImGui::EndGroup();
+        }
+        ImGui::End();
+    }
+}
+
+void UIManager::SceneSettingsPage()
+{
+    std::vector<VoidFuncPair> settingsDisplayFunctions;
+
+    VoidFuncPair mainRtvColour =
+    {
+        [&]() { ImGui::Text(m_Settings.m_MainViewportClearColour.GetName()); },
+        [&]() { ImGui::ColorEdit4(m_Settings.m_MainViewportClearColour.GetLabelessName().c_str(), (float*)&m_Settings.m_MainViewportClearColour.m_Value, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_None); }
+    };
+    settingsDisplayFunctions.push_back(mainRtvColour);
+
+    VoidFuncPair dockSpace =
+    {
+        [&]() { ImGui::Text(m_Settings.m_DockSpace.GetName()); },
+        [&]() { ImGui::Checkbox(m_Settings.m_DockSpace.GetLabelessName().c_str(), &m_Settings.m_DockSpace.m_Value); }
+    };
+    settingsDisplayFunctions.push_back(dockSpace);
+    
+
+    // left
+    ImGui::BeginGroup();
+    for (auto& it : settingsDisplayFunctions)
+    {
+        it.first();
+    }
+    ImGui::EndGroup();
+
+    ImGui::SameLine();
+
+    // right
+    ImGui::BeginGroup();
+    for (auto& it : settingsDisplayFunctions)
+    {
+        it.second();
+    }
+    ImGui::EndGroup();
+
+    
 }
 
 ViewportTextureHandle UIManager::GetViewportTextureHandle(std::string debugName)

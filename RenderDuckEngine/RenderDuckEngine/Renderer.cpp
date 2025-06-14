@@ -6,6 +6,7 @@
 
 #include "UploadBuffer.h"
 #include "GeometryGenerator.h"
+#include "EngineUtils.h"
 
 const int gNumFrameResources = 3;
 const u32 c_MaxSrvDescriptors = 10000;
@@ -66,7 +67,6 @@ bool Renderer::Initialize()
     m_UIManager = std::make_unique<UIManager>();
     m_UIManager->InitialiseForDX12(MainWnd(), m_d3dDevice.Get(), m_CommandQueue.Get(), m_SrvDescriptorHeap.Get(), s_SwapChainBufferCount);
     m_UIManager->InitStyle();
-    m_UIManager->CreateViewport();
 
     // Execute the initialization commands.
     ThrowIfFailed(m_CommandList->Close());
@@ -246,6 +246,9 @@ void Renderer::Update(const GameTimer& gt)
 
 void Renderer::Draw(const GameTimer& gt)
 {
+    const UIManager::Settings& settings = m_UIManager->GetSettings();
+    const DirectX::XMVECTORF32 mainRtvClearColour = DirectXColorFromImVec4(settings.m_MainViewportClearColour.GetValue());
+
     auto cmdListAlloc = m_CurrFrameResource->CmdListAlloc;
 
     // Reuse the memory associated with command recording.
@@ -306,18 +309,18 @@ void Renderer::Draw(const GameTimer& gt)
     m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
 
     // Specify the buffers we are going to render to.
-    if (!m_UIManager->GetParams().m_DockSpace)
+    if (!settings.m_DockSpace.GetValue())
     {
         m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
             D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-        m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), Colors::LightSteelBlue, 0, nullptr);
+        m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), mainRtvClearColour, 0, nullptr);
         m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
     }
     else
     {
         m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(),
             D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
-        m_CommandList->ClearRenderTargetView(m_MainCpuRtv, Colors::LightSteelBlue, 0, nullptr);        
+        m_CommandList->ClearRenderTargetView(m_MainCpuRtv, mainRtvClearColour, 0, nullptr);
         m_CommandList->OMSetRenderTargets(1, &m_MainCpuRtv, true, &DepthStencilView());
         
     }
@@ -340,8 +343,8 @@ void Renderer::Draw(const GameTimer& gt)
     m_CommandList->SetGraphicsRootDescriptorTable(3, skyTexDescriptor);
 
 
-    m_CommandList->SetPipelineState(m_PSOs["sky"].Get());
-    DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Sky]);
+    //m_CommandList->SetPipelineState(m_PSOs["sky"].Get());
+    //DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Sky]);
 
     m_CommandList->SetPipelineState(m_PSOs["opaque"].Get());
     DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
@@ -350,11 +353,11 @@ void Renderer::Draw(const GameTimer& gt)
     //DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Debug]);
 
     // Indicate a state transition on the resource usage.
-    if (m_UIManager->GetParams().m_DockSpace)
+    if (settings.m_DockSpace.GetValue())
     {
         m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(),
             D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-        m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), Colors::LightSteelBlue, 0, nullptr);
+        m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), mainRtvClearColour, 0, nullptr);
         m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
     }
     

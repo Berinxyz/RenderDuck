@@ -1,5 +1,6 @@
 #pragma once
 #include "EngineCore.h"
+#include "EngineUtils.h"
 
 #include "include/imgui/imgui.h"
 #include "include/imgui/backends/imgui_impl_win32.h"
@@ -7,7 +8,6 @@
 
 #include <cstring>
 #include <string>
-
 
 typedef u32 ViewportHandle;
 typedef u64 ViewportTextureHandle;
@@ -26,16 +26,27 @@ struct ViewportTexture
 	std::string m_DebugName;
 };
 
-struct ConfigParams
+class UIManager;
+template<typename T>
+class SettingMap
 {
-	ConfigParams()
-		: m_ShowDemoWindow(false)
-		, m_DockSpace(false)
+public:
+
+	friend UIManager;
+
+	SettingMap(std::string name, T value)
+		: m_Value(value), m_Name(name)
 	{
 	}
 
-	bool m_ShowDemoWindow;
-	bool m_DockSpace;
+	const char* GetName() { return m_Name.c_str(); }
+	const std::string GetLabelessName() { return "###" + m_Name; }
+	const T& GetValue() const { return m_Value; }
+
+private:
+
+	T m_Value;
+	std::string m_Name;
 };
 
 class UIManager
@@ -43,6 +54,31 @@ class UIManager
 public:
 	UIManager();
 	~UIManager();
+
+	struct Settings
+	{
+		Settings() 
+			: m_DockSpace("DockSpace", false)
+			, m_MainViewportClearColour("MainRTVClearColour", DirectXColorToImVec4(DirectX::Colors::DimGray))
+		{
+		}
+
+		SettingMap<ImVec4> m_MainViewportClearColour;
+
+		SettingMap<bool> m_DockSpace;
+	};
+
+	struct ActiveWindows
+	{
+		ActiveWindows()
+			: m_ShowDemoWindow(false)
+			, m_SettingsWindow(false)
+		{
+		}
+
+		bool m_SettingsWindow;
+		bool m_ShowDemoWindow;
+	};
 
 	void InitStyle();
 
@@ -55,7 +91,7 @@ public:
 	void SubmitViewportTexture(std::string textureName, GPUTextureHandle textureHandle, u32 textureWidth, u32 textureHeight);
 	void CreateViewport();
 
-	const ConfigParams GetParams();
+	const Settings& GetSettings() { return m_Settings; }
 
 	std::string GetDefaultViewName();
 
@@ -65,6 +101,10 @@ private:
 	void DrawViewports();
 	void DestroyClosedViewports();
 	void MainMenuBar();
+	void SettingsWindow();
+
+	// Settings Categories
+	void SceneSettingsPage();
 
 	// Utility Functions
 	ViewportTextureHandle GetViewportTextureHandle(std::string debugName);
@@ -72,7 +112,8 @@ private:
 	ImTextureID TexHandleToImTexID(D3D12_GPU_DESCRIPTOR_HANDLE handle);
 	ViewportHandle AllocateViewportHandle();
 
-	ConfigParams m_Params;
+	Settings m_Settings;
+	ActiveWindows m_ActiveWindows;
 
 	std::unordered_map<ViewportHandle, Viewport> m_Viewports;
 	std::unordered_map<ViewportTextureHandle, ViewportTexture> m_ViewportDisplayTextureHandles;
