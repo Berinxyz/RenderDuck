@@ -2,15 +2,19 @@
 #include "EngineCore.h"
 #include "EngineUtils.h"
 
+#include "Settings.h"
+#include "RenderSettings.h"
+
 #include "include/imgui/imgui.h"
 #include "include/imgui/backends/imgui_impl_win32.h"
 #include "include/imgui/backends/imgui_impl_dx12.h"
 
-#include <cstring>
-#include <string>
-
 typedef u32 ViewportHandle;
 typedef u64 ViewportTextureHandle;
+
+SETTING_CONFIG_BEGIN(UISettings)
+	SETTING(bool, DockSpace, false)
+SETTING_CONFIG_END
 
 struct Viewport
 {
@@ -26,47 +30,11 @@ struct ViewportTexture
 	std::string m_DebugName;
 };
 
-class UIManager;
-template<typename T>
-class SettingMap
-{
-public:
-
-	friend UIManager;
-
-	SettingMap(std::string name, T value)
-		: m_Value(value), m_Name(name)
-	{
-	}
-
-	const char* GetName() { return m_Name.c_str(); }
-	const std::string GetLabelessName() { return "###" + m_Name; }
-	const T& GetValue() const { return m_Value; }
-
-private:
-
-	T m_Value;
-	std::string m_Name;
-};
-
 class UIManager
 {
 public:
 	UIManager();
 	~UIManager();
-
-	struct Settings
-	{
-		Settings() 
-			: m_DockSpace("DockSpace", false)
-			, m_MainViewportClearColour("MainRTVClearColour", DirectXColorToImVec4(DirectX::Colors::DimGray))
-		{
-		}
-
-		SettingMap<ImVec4> m_MainViewportClearColour;
-
-		SettingMap<bool> m_DockSpace;
-	};
 
 	struct ActiveWindows
 	{
@@ -82,7 +50,7 @@ public:
 
 	void InitStyle();
 
-	void InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount);
+	void InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount, IRenderSettings* renderer);
 
 	void BeginRender();
 	void Render();
@@ -91,11 +59,14 @@ public:
 	void SubmitViewportTexture(std::string textureName, GPUTextureHandle textureHandle, u32 textureWidth, u32 textureHeight);
 	void CreateViewport();
 
-	const Settings& GetSettings() { return m_Settings; }
-
 	std::string GetDefaultViewName();
 
 private:
+
+	IRenderSettings* m_Renderer;
+
+	UISettings m_UISettings;
+
 	void CleanUp();
 	// UI Draw functions
 	void DrawViewports();
@@ -106,18 +77,20 @@ private:
 	// Settings Categories
 	void SceneSettingsPage();
 
+	// XML
+	void SaveSettings();
+
 	// Utility Functions
 	ViewportTextureHandle GetViewportTextureHandle(std::string debugName);
 	ImVec2 CalculateViewportTextureSize(ImVec2& const textureDims, ImVec2& const windowDims);
 	ImTextureID TexHandleToImTexID(D3D12_GPU_DESCRIPTOR_HANDLE handle);
 	ViewportHandle AllocateViewportHandle();
 
-	Settings m_Settings;
 	ActiveWindows m_ActiveWindows;
 
 	std::unordered_map<ViewportHandle, Viewport> m_Viewports;
 	std::unordered_map<ViewportTextureHandle, ViewportTexture> m_ViewportDisplayTextureHandles;
-	ViewportHandle m_NextHandle;
+	ViewportHandle m_NextViewportHandle;
 
 	ImVec4* m_DefaultUIColours;
 	ImGuiStyle m_DefaultUIStyle;

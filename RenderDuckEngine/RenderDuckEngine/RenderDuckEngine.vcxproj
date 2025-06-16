@@ -135,6 +135,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AppAdmin.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="d3dApp.cpp" />
     <ClCompile Include="d3dUtil.cpp" />
@@ -155,11 +156,13 @@
     <ClCompile Include="MathHelper.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SceneManager.cpp" />
+    <ClCompile Include="Settings.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="Ssao.cpp" />
     <ClCompile Include="UIManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AppAdmin.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="d3dApp.h" />
     <ClInclude Include="d3dUtil.h" />
@@ -181,16 +184,23 @@
     <ClInclude Include="include\imgui\imstb_truetype.h" />
     <ClInclude Include="include\imgui\misc\cpp\imgui_stdlib.h" />
     <ClInclude Include="include\imgui\misc\single_file\imgui_single_file.h" />
+    <ClInclude Include="include\rapidxml\rapidxml.hpp" />
+    <ClInclude Include="include\rapidxml\rapidxml_iterators.hpp" />
+    <ClInclude Include="include\rapidxml\rapidxml_print.hpp" />
+    <ClInclude Include="include\rapidxml\rapidxml_utils.hpp" />
     <ClInclude Include="LightManager.h" />
     <ClInclude Include="MathHelper.h" />
     <ClInclude Include="OutputLog.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="RenderSettings.h" />
     <ClInclude Include="SceneManager.h" />
+    <ClInclude Include="Settings.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="Ssao.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="UIManager.h" />
     <ClInclude Include="UploadBuffer.h" />
+    <ClInclude Include="XMLParser.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="imgui.ini" />

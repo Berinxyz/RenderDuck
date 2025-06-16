@@ -10,13 +10,13 @@
 #include "Ssao.h"
 #include "UIManager.h"
 
+#include "RenderSettings.h"
+
 #include "DescriptorHeapAllocator.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 using namespace DirectX::PackedVector;
-
-
 
 struct RenderItem
 {
@@ -59,7 +59,7 @@ enum class RenderLayer : int
     Count
 };
 
-class Renderer : public D3DApp
+class Renderer : public D3DApp, IRenderSettings
 {
 public:
     friend class UIManager;
@@ -70,6 +70,10 @@ public:
     ~Renderer();
 
     virtual bool Initialize()override;
+
+    // render settings
+    virtual void SetRenderToMainRTV(bool renderToMainRTV) override { m_RenderToRTV = renderToMainRTV; }
+    virtual RenderSettings& GetRenderSettings() override { return m_RenderSettings; }
 
 private:
     virtual void CreateRtvAndDsvDescriptorHeaps()override;
@@ -121,9 +125,12 @@ private:
     static void ImGuiAllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart);
     static void ImGuiFreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle);
 
-private:
-
     void BuildMainRTV();
+
+
+    RenderSettings m_RenderSettings;
+
+    std::shared_ptr<UIManager> m_UIManager;
 
     std::vector<std::unique_ptr<FrameResource>> m_FrameResources;
     FrameResource* m_CurrFrameResource = nullptr;
@@ -131,6 +138,7 @@ private:
 
     u32 m_DescriptorCount;
 
+    bool m_RenderToRTV;
     int m_MainRTVIndex;
     int m_MainSRVIndex;
 
@@ -180,8 +188,6 @@ private:
 
     DirectX::BoundingSphere m_SceneBounds;
 
-    std::unique_ptr<UIManager> m_UIManager;
-
     float m_LightNearZ = 0.0f;
     float m_LightFarZ = 0.0f;
     XMFLOAT3 m_LightPosW;
@@ -198,5 +204,4 @@ private:
     XMFLOAT3 m_RotatedLightDirections[3];
 
     POINT m_LastMousePos;
-
 };

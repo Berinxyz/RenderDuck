@@ -64,8 +64,8 @@ bool Renderer::Initialize()
 
     m_Ssao->SetPSOs(m_PSOs["ssao"].Get(), m_PSOs["ssaoBlur"].Get());
 
-    m_UIManager = std::make_unique<UIManager>();
-    m_UIManager->InitialiseForDX12(MainWnd(), m_d3dDevice.Get(), m_CommandQueue.Get(), m_SrvDescriptorHeap.Get(), s_SwapChainBufferCount);
+    m_UIManager = std::make_shared<UIManager>();
+    m_UIManager->InitialiseForDX12(MainWnd(), m_d3dDevice.Get(), m_CommandQueue.Get(), m_SrvDescriptorHeap.Get(), s_SwapChainBufferCount, this);
     m_UIManager->InitStyle();
 
     // Execute the initialization commands.
@@ -246,8 +246,7 @@ void Renderer::Update(const GameTimer& gt)
 
 void Renderer::Draw(const GameTimer& gt)
 {
-    const UIManager::Settings& settings = m_UIManager->GetSettings();
-    const DirectX::XMVECTORF32 mainRtvClearColour = DirectXColorFromImVec4(settings.m_MainViewportClearColour.GetValue());
+    const DirectX::XMVECTORF32 mainRtvClearColour = DirectXColorFromImVec4(m_RenderSettings.m_MainViewportClearColour.GetValue());
 
     auto cmdListAlloc = m_CurrFrameResource->CmdListAlloc;
 
@@ -309,7 +308,7 @@ void Renderer::Draw(const GameTimer& gt)
     m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
 
     // Specify the buffers we are going to render to.
-    if (!settings.m_DockSpace.GetValue())
+    if (!m_RenderToRTV)
     {
         m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
             D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
@@ -353,7 +352,7 @@ void Renderer::Draw(const GameTimer& gt)
     //DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Debug]);
 
     // Indicate a state transition on the resource usage.
-    if (settings.m_DockSpace.GetValue())
+    if (m_RenderToRTV)
     {
         m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(),
             D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));

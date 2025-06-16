@@ -19,11 +19,11 @@
     <Filter Include="Inc\ImGui">
       <UniqueIdentifier>{bb6a66c4-8476-4aba-b62a-20fdae3c4c2c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Inc\stb">
-      <UniqueIdentifier>{2a9f9941-41a8-46aa-9903-979957c3cc04}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Shaders">
       <UniqueIdentifier>{05f122fc-5f3b-4766-9400-234ad1c0d725}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Inc\RapidXML">
+      <UniqueIdentifier>{fc7b3592-f317-43e1-9564-01fea16e8c36}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -94,6 +94,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SceneManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Settings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AppAdmin.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -189,6 +195,30 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="EngineUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\rapidxml\rapidxml.hpp">
+      <Filter>Inc\RapidXML</Filter>
+    </ClInclude>
+    <ClInclude Include="include\rapidxml\rapidxml_iterators.hpp">
+      <Filter>Inc\RapidXML</Filter>
+    </ClInclude>
+    <ClInclude Include="include\rapidxml\rapidxml_print.hpp">
+      <Filter>Inc\RapidXML</Filter>
+    </ClInclude>
+    <ClInclude Include="include\rapidxml\rapidxml_utils.hpp">
+      <Filter>Inc\RapidXML</Filter>
+    </ClInclude>
+    <ClInclude Include="XMLParser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Settings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AppAdmin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderSettings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

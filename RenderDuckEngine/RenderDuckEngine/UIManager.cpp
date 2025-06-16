@@ -9,10 +9,10 @@
 typedef std::function<void()> VoidFunc;
 typedef std::pair<VoidFunc, VoidFunc> VoidFuncPair;
 
-
 UIManager::UIManager()
-    : m_NextHandle(-1)
+    : m_NextViewportHandle(-1)
 {
+    //SaveSettings();
 }
 
 UIManager::~UIManager()
@@ -98,7 +98,7 @@ void UIManager::InitStyle()
     io.Fonts->Build();
 }
 
-void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount)
+void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount, IRenderSettings* renderer)
 {
     assert(device);
     assert(commandQueue);
@@ -113,6 +113,7 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
 
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(window);
+    
     ImGui_ImplDX12_InitInfo init_info = {};
     init_info.Device = device;
     init_info.CommandQueue = commandQueue;
@@ -127,6 +128,9 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
 
     ImGui_ImplDX12_Init(&init_info);
 
+
+    m_Renderer = renderer;
+
     // Setup Dear ImGui style
     //ImGui::StyleColorsDark();
     //ImGui::StyleColorsLight();
@@ -134,7 +138,7 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
 
 void UIManager::Render()
 {
-    if (m_Settings.m_DockSpace.GetValue()) ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+    if (m_UISettings.m_DockSpace.GetValue()) ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 
     if (m_ActiveWindows.m_ShowDemoWindow) ImGui::ShowDemoWindow(&m_ActiveWindows.m_ShowDemoWindow);    
     
@@ -247,7 +251,7 @@ void UIManager::CreateViewport()
 
 ViewportHandle UIManager::AllocateViewportHandle()
 {
-    u32 handle = ++m_NextHandle;
+    u32 handle = ++m_NextViewportHandle;
     return handle;
 }
 
@@ -329,7 +333,11 @@ void UIManager::MainMenuBar()
         if (ImGui::BeginMenu("Window"))
         {
             if (ImGui::MenuItem("Add Viewport")) CreateViewport();
-            if (ImGui::MenuItem("Dockspace")) m_Settings.m_DockSpace.m_Value = !m_Settings.m_DockSpace.m_Value;
+            if (ImGui::MenuItem("Dockspace"))
+            {
+                m_UISettings.m_DockSpace.m_Value = !m_UISettings.m_DockSpace.m_Value;
+                m_Renderer->SetRenderToMainRTV(m_UISettings.m_DockSpace.m_Value);
+            }
             ImGui::Separator();
             if (ImGui::MenuItem("Show Demo")) m_ActiveWindows.m_ShowDemoWindow = !m_ActiveWindows.m_ShowDemoWindow;
             ImGui::EndMenu();
@@ -381,19 +389,20 @@ void UIManager::SettingsWindow()
 
 void UIManager::SceneSettingsPage()
 {
+    RenderSettings& renderSettings = m_Renderer->GetRenderSettings();
     std::vector<VoidFuncPair> settingsDisplayFunctions;
 
     VoidFuncPair mainRtvColour =
     {
-        [&]() { ImGui::Text(m_Settings.m_MainViewportClearColour.GetName()); },
-        [&]() { ImGui::ColorEdit4(m_Settings.m_MainViewportClearColour.GetLabelessName().c_str(), (float*)&m_Settings.m_MainViewportClearColour.m_Value, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_None); }
+        [&]() { ImGui::Text(renderSettings.m_MainViewportClearColour.GetName()); },
+        [&]() { ImGui::ColorEdit4(renderSettings.m_MainViewportClearColour.GetLabelessName().c_str(), (float*)&renderSettings .m_MainViewportClearColour.m_Value, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_None); }
     };
     settingsDisplayFunctions.push_back(mainRtvColour);
 
     VoidFuncPair dockSpace =
     {
-        [&]() { ImGui::Text(m_Settings.m_DockSpace.GetName()); },
-        [&]() { ImGui::Checkbox(m_Settings.m_DockSpace.GetLabelessName().c_str(), &m_Settings.m_DockSpace.m_Value); }
+        [&]() { ImGui::Text(m_UISettings.m_DockSpace.GetName()); },
+        [&]() { if (ImGui::Checkbox(m_UISettings.m_DockSpace.GetLabelessName().c_str(), &m_UISettings.m_DockSpace.m_Value)) m_Renderer->SetRenderToMainRTV(m_UISettings.m_DockSpace.m_Value); }
     };
     settingsDisplayFunctions.push_back(dockSpace);
     
@@ -417,6 +426,11 @@ void UIManager::SceneSettingsPage()
     ImGui::EndGroup();
 
     
+}
+
+void UIManager::SaveSettings()
+{
+
 }
 
 ViewportTextureHandle UIManager::GetViewportTextureHandle(std::string debugName)
