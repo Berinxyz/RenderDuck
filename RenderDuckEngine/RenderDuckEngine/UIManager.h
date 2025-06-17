@@ -93,7 +93,6 @@ private:
 	ViewportHandle m_NextViewportHandle;
 
 	ImVec4* m_DefaultUIColours;
-	ImGuiStyle m_DefaultUIStyle;
 	ImFont* m_DefaultFont;
 };
 

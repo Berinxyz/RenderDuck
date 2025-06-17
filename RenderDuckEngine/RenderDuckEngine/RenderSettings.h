@@ -2,7 +2,7 @@
 #include "Settings.h"
 
 SETTING_CONFIG_BEGIN(RenderSettings)
-SETTING(ImVec4, MainViewportClearColour, ImVec4(30.f / 255.f, 30.f / 255.f, 30.f / 255.f, 1.0f))
+	SETTING(ImVec4, MainViewportClearColour, ImVec4(30.f / 255.f, 30.f / 255.f, 30.f / 255.f, 1.0f))
 SETTING_CONFIG_END
 
 class IRenderSettings

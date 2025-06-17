@@ -1,6 +1,11 @@
 #pragma once
-
+#include <filesystem>
 #include "Settings.h"
+
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cstring> // For std::strcpy
 
 #include "include/rapidxml/rapidxml.hpp"
 #include "include/rapidxml/rapidxml_utils.hpp"
@@ -13,16 +18,23 @@ inline bool FileExists(const char* fileName)
 	return (stat(fileName, &buffer) == 0);
 }
 
-void SaveSettings()
+void CreateFile(const char* fileName)
 {
-	/*if (!FileExists(SETTINGS_FILE_NAME))
+	if (!FileExists(fileName))
 	{
-		std::ofstream{ SETTINGS_FILE_NAME };
-	}*/
+		std::ofstream{fileName};
+	}
 }
 
+
+void ParseConfigTest()
+{
+
+}
+
+
 template<typename T>
-void SaveSetting(SettingMap<T>& setting)
+void SaveSetting()
 {
 	using namespace rapidxml;
 

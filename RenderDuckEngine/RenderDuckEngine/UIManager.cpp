@@ -12,7 +12,6 @@ typedef std::pair<VoidFunc, VoidFunc> VoidFuncPair;
 UIManager::UIManager()
     : m_NextViewportHandle(-1)
 {
-    //SaveSettings();
 }
 
 UIManager::~UIManager()
@@ -311,7 +310,10 @@ void UIManager::MainMenuBar()
                 ImGui::MenuItem("fish_hat.h");
                 ImGui::EndMenu();
             }
-            if (ImGui::MenuItem("Save", "Ctrl+S")) {}
+            if (ImGui::MenuItem("Save", "Ctrl+S")) 
+            {
+                SettingsManager::Instance().WriteSettingsXML();
+            }
             ImGui::EndMenu();
         }
 
@@ -394,14 +396,14 @@ void UIManager::SceneSettingsPage()
 
     VoidFuncPair mainRtvColour =
     {
-        [&]() { ImGui::Text(renderSettings.m_MainViewportClearColour.GetName()); },
+        [&]() { ImGui::Text(renderSettings.m_MainViewportClearColour.GetName().c_str()); },
         [&]() { ImGui::ColorEdit4(renderSettings.m_MainViewportClearColour.GetLabelessName().c_str(), (float*)&renderSettings .m_MainViewportClearColour.m_Value, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_None); }
     };
     settingsDisplayFunctions.push_back(mainRtvColour);
 
     VoidFuncPair dockSpace =
     {
-        [&]() { ImGui::Text(m_UISettings.m_DockSpace.GetName()); },
+        [&]() { ImGui::Text(m_UISettings.m_DockSpace.GetName().c_str()); },
         [&]() { if (ImGui::Checkbox(m_UISettings.m_DockSpace.GetLabelessName().c_str(), &m_UISettings.m_DockSpace.m_Value)) m_Renderer->SetRenderToMainRTV(m_UISettings.m_DockSpace.m_Value); }
     };
     settingsDisplayFunctions.push_back(dockSpace);

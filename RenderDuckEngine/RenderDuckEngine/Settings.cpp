@@ -1,5 +1,6 @@
 #include "Settings.h"
 
+#include "XMLParser.h"
 
 void SettingConfig::LoadSettings()
 {
@@ -8,22 +9,21 @@ void SettingConfig::SaveSettings()
 {
 }
 
-	
-SettingManagerRef SettingsManager::Instance()
+void SettingsManager::RegisterSettingConfig(SettingConfig* settingConfig)
 {
-	return std::make_shared<SettingsManager>(m_Instance);
+	m_SettingConfigs.push_back(settingConfig);
 }
 
-void SettingsManager::RegisterSettingConfig(std::string name, SettingConfig& settingConfig)
+void SettingsManager::WriteSettingsXML()
 {
-	FileNameHash fileNameHash = std::hash<std::string>{}(name);
-	m_SettingConfigs[fileNameHash] = std::make_shared<SettingConfig>(settingConfig);
-}
-
-void SettingsManager::OutputSettingsXML()
-{
-	for (auto it : m_SettingConfigs)
+	for (auto& it : m_SettingConfigs)
 	{
-		it.second->SaveSettings();
+		SettingConfig* config = it;
+		std::string fileName = XML_FILE_PATH + config->GetFileName();
+		CreateFile(fileName.c_str());
 	}
+}
+
+void SettingsManager::ReadSettingsXML()
+{
 }
