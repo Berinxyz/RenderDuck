@@ -25,6 +25,12 @@
     <Filter Include="Inc\RapidXML">
       <UniqueIdentifier>{fc7b3592-f317-43e1-9564-01fea16e8c36}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\XML">
+      <UniqueIdentifier>{97f0b27e-ec74-49e0-93a5-6d9f0ef8a4ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\XML">
+      <UniqueIdentifier>{a4f17ed9-77cf-4c11-9de9-18f5f5eb947f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp">
@@ -101,6 +107,12 @@
     </ClCompile>
     <ClCompile Include="AppAdmin.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XMLParser.cpp">
+      <Filter>Source Files\XML</Filter>
+    </ClCompile>
+    <ClCompile Include="XMLSerialiser.cpp">
+      <Filter>Source Files\XML</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -209,9 +221,6 @@
     <ClInclude Include="include\rapidxml\rapidxml_utils.hpp">
       <Filter>Inc\RapidXML</Filter>
     </ClInclude>
-    <ClInclude Include="XMLParser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Settings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -220,6 +229,12 @@
     </ClInclude>
     <ClInclude Include="RenderSettings.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XMLParser.h">
+      <Filter>Header Files\XML</Filter>
+    </ClInclude>
+    <ClInclude Include="XMLSerialiser.h">
+      <Filter>Header Files\XML</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

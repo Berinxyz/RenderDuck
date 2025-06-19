@@ -17,6 +17,9 @@ typedef unsigned short	u16;
 typedef unsigned int	u32;
 typedef size_t			u64;
 
+typedef float			f32;
+typedef double			f64;
+
 typedef DirectX::XMMATRIX mtx44;
 typedef DirectX::XMVECTOR vec4;
 typedef DirectX::XMVECTOR vec3;

@@ -130,6 +130,8 @@ private:
 
     RenderSettings m_RenderSettings;
 
+    TestSettings m_TestSettings;
+
     std::shared_ptr<UIManager> m_UIManager;
 
     std::vector<std::unique_ptr<FrameResource>> m_FrameResources;

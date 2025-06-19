@@ -1,13 +1,10 @@
 #pragma once
 #include "EngineCore.h"
 
+#include "XMLSerialiser.h"
+
 #include <cstring>
 #include <string>
-
-#define XML_FILE_PATH "xmls/"
-
-typedef u64 ConfigNameHash;
-
 //
 // <------------------------------------------------ SETTING MANAGER ---------------------------------------------->
 //
@@ -19,6 +16,7 @@ typedef std::shared_ptr<SettingsManager> SettingManagerRef;
 class SettingsManager
 {
 public:
+	// Singleton
 	SettingsManager() = default;
 	~SettingsManager() = default;
 	SettingsManager(SettingsManager const&) = delete;
@@ -30,8 +28,10 @@ public:
 		return Instance;
 	};
 
+	// Called by settings configs to register them in m_SettingConfigs
 	void RegisterSettingConfig(SettingConfig* settingConfig);
 
+	// Called by UIManager
 	void WriteSettingsXML();
 	void ReadSettingsXML();
 
@@ -49,23 +49,37 @@ class SettingConfig
 {
 public:
 
-	SettingConfig(std::string name) : m_FileName(name + ".xml")
+	SettingConfig(std::string name) : m_FileName(name)
 	{
 		SettingsManager::Instance().RegisterSettingConfig(this);
+		// Loads the recorded setting count from the xml
+		//LoadSettingCount();
 	}
 
 	void RegisterSetting(ISetting* setting) 
 	{ 
-		m_Settings.push_back(setting); 
+		assert(setting != nullptr);
+		m_Settings.push_back(setting);
+
+		// Once all the setting maps have registered to the config, we can load their values from the xml
+		if (m_Settings.size() == m_SettingCount)
+		{
+			LoadSettings();
+		}
 	}
 
+	const std::string& GetFileName() 
+	{ 
+		return m_FileName; 
+	}
 
-	const std::string& GetFileName() { return m_FileName; }
+	void LoadSettingCount();
+	void LoadSettings();
+	void SaveSettings();
+
 private:
 
-	virtual void LoadSettings();
-	virtual void SaveSettings();
-
+	u32 m_SettingCount;
 	std::string m_FileName;
 	std::vector<ISetting*> m_Settings;
 };
@@ -74,12 +88,14 @@ private:
 // <------------------------------------------------ SETTING MAP ---------------------------------------------->
 //
 
+// template typeless interface used by the config to store list of setting maps
 struct ISetting 
 {
 	virtual ~ISetting() = default;
 	virtual std::string GetTypeName() const = 0;
 	virtual std::string GetName() const = 0;
 	virtual std::string GetValueAsString() const = 0;
+	virtual void SetValueFromString(const std::string& str) = 0;
 };
 
 class UIManager;
@@ -92,6 +108,7 @@ public:
 	SettingMap(SettingConfig* parentConfig, std::string typeName, std::string name, T value)
 		: m_TypeName(typeName), m_Value(value), m_Name(name)
 	{	
+		// register to the config when the setting map is created
 		parentConfig->RegisterSetting(this);
 	}
 
@@ -105,19 +122,6 @@ public:
 		return m_Name; 
 	}
 
-	virtual std::string GetValueAsString() const override
-	{
-		if constexpr (std::is_same_v<T, std::string>)
-		{
-			return m_value;
-		}
-		else
-		{
-			//return std::to_string(m_Value);
-		}
-		return " ";
-	}
-
 	const std::string GetLabelessName() 
 	{ 
 		return "###" + m_Name; 
@@ -127,6 +131,30 @@ public:
 	{ 
 		return m_Value; 
 	}
+
+	// saving and loading from xml
+	virtual std::string GetValueAsString() const override
+	{
+		XMLSerialiser serialiser;
+		serialiser.Write();
+
+		std::string valStr;
+		if (serialiser.SerialiseValueByName(m_TypeName, valStr, (void*)&m_Value))
+		{
+			return valStr;
+		}
+
+		return "Unsupported Type";
+	}
+
+	virtual void SetValueFromString(const std::string& valueStr)
+	{
+		XMLSerialiser serialiser;
+		serialiser.Read();
+		std::string str = valueStr;
+		serialiser.SerialiseValueByName(m_TypeName, str, (void*)&m_Value);
+	}
+
 
 private:
 
@@ -152,15 +180,3 @@ private:
 
 #define SETTING(a, b, c) SettingMap<a> m_##b = SettingMap<a>(this, SETTING_STR(a), SETTING_STR(b), c);
 
-
-/*class Settings
-{
-	void Initialise()
-	{
-		m_DockSpace = SettingMap<bool>("DockSpace", false);
-		
-	}
-
-private:
-	SettingMap<bool> m_DockSpace;
-};*/

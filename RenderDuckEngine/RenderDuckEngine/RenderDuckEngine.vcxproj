@@ -160,6 +160,8 @@
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="Ssao.cpp" />
     <ClCompile Include="UIManager.cpp" />
+    <ClCompile Include="XMLParser.cpp" />
+    <ClCompile Include="XMLSerialiser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppAdmin.h" />
@@ -201,6 +203,7 @@
     <ClInclude Include="UIManager.h" />
     <ClInclude Include="UploadBuffer.h" />
     <ClInclude Include="XMLParser.h" />
+    <ClInclude Include="XMLSerialiser.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="imgui.ini" />
