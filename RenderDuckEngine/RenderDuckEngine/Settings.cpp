@@ -76,9 +76,9 @@ void SettingConfig::SaveSettings()
         std::string value = setting->GetValueAsString();
 
         XMLNode* settingNode = parser.AddNode(root, PROPERTY_STR);
-        parser.SetAttribute(settingNode, "Type", type);
-        parser.SetAttribute(settingNode, "Name", name);
-        parser.SetAttribute(settingNode, "Value", value);
+        parser.SetAttribute(settingNode, TYPE_STR, type);
+        parser.SetAttribute(settingNode, NAME_STR, name);
+        parser.SetAttribute(settingNode, VALUE_STR, value);
     }
 
     parser.SaveFile();
