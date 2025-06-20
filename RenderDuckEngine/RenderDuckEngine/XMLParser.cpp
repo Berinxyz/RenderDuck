@@ -7,6 +7,9 @@
 #include <cstring> // For std::strcpy
 #include <sstream>
 
+#include "include/rapidxml/rapidxml_print.hpp"
+#include "include/rapidxml/rapidxml_iterators.hpp"
+
 XMLParser::XMLParser(std::string& fileName)
 {
     m_FilePath = GetFullPath(fileName.c_str());
@@ -18,9 +21,6 @@ XMLParser::XMLParser(std::string& fileName)
 
     LoadFile(&fileName);
 }
-
-XMLParser::XMLParser()
-{}
 
 bool XMLParser::FileExists(const char* fileName)
 {
@@ -114,16 +114,12 @@ XMLNode* XMLParser::GetNode(XMLNode* parent, const std::string& name)
     return parent ? parent->first_node(name.c_str()) : nullptr;
 }
 
-std::vector<XMLNode*> XMLParser::GetAllNodes(XMLNode* parent, const std::string& name)
+void XMLParser::GetAllNodes(XMLNode* parent, const std::string& name, XMLNodeList& nodesOut)
 {
-    std::vector<XMLNode*> nodes;
-
     for (XMLNode* node = parent->first_node(name.c_str()); node; node = node->next_sibling())
     {
-        nodes.push_back(node);
+        nodesOut.push_back(node);
     }
-
-    return nodes;
 }
 
 std::string XMLParser::GetAttribute(XMLNode* node, const std::string& attrName)
@@ -139,7 +135,7 @@ void XMLParser::SetAttribute(XMLNode* node, const std::string& name, const std::
 {
     char* attrName = m_Doc.allocate_string(name.c_str());
     char* attrVal = m_Doc.allocate_string(value.c_str());
-    auto* attr = m_Doc.allocate_attribute(attrName, attrVal);
+    XMLAttr* attr = m_Doc.allocate_attribute(attrName, attrVal);
     node->append_attribute(attr);
 }
 

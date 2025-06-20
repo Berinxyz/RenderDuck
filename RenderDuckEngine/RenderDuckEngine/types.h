@@ -24,3 +24,7 @@ typedef DirectX::XMMATRIX mtx44;
 typedef DirectX::XMVECTOR vec4;
 typedef DirectX::XMVECTOR vec3;
 typedef DirectX::XMVECTOR vec2;
+
+typedef DirectX::XMFLOAT4 float4;
+typedef DirectX::XMFLOAT3 float3;
+typedef DirectX::XMFLOAT2 float2;

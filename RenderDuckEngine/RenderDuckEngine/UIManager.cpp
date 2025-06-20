@@ -6,6 +6,8 @@
 #include <queue>
 #include <string.h>
 
+#include <filesystem>
+
 typedef std::function<void()> VoidFunc;
 typedef std::pair<VoidFunc, VoidFunc> VoidFuncPair;
 
@@ -127,12 +129,12 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
 
     ImGui_ImplDX12_Init(&init_info);
 
+    //if (!std::filesystem::exists("imgui.ini"))
+    //{
+    //    ImGui::LoadIniSettingsFromDisk("DefaultPanelLayout.ini");
+    //}
 
     m_Renderer = renderer;
-
-    // Setup Dear ImGui style
-    //ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
 }
 
 void UIManager::Render()
@@ -312,7 +314,7 @@ void UIManager::MainMenuBar()
             }
             if (ImGui::MenuItem("Save", "Ctrl+S")) 
             {
-                SettingsManager::Instance().WriteSettingsXML();
+                PropertyManager::Instance().WriteXMLs();
             }
             ImGui::EndMenu();
         }

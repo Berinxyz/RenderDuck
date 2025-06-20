@@ -1,24 +1,25 @@
 #pragma once
 #include "types.h"
-
-#include "include/rapidxml/rapidxml.hpp"
-#include "include/rapidxml/rapidxml_utils.hpp"
-#include "include/rapidxml/rapidxml_print.hpp"
-#include "include/rapidxml/rapidxml_iterators.hpp"
+#include <vector>
 
 #define XML_FILE_PATH "xml/"
 #define XML_FILE_EXT ".xml"
 
+#define RAPIDXML_STATIC_POOL_SIZE (64 * 1024) / 2
+
+#include "include/rapidxml/rapidxml.hpp"
+#include "include/rapidxml/rapidxml_utils.hpp"
+
 typedef rapidxml::xml_document<> XMLDoc;
 typedef rapidxml::xml_node<> XMLNode;
 typedef rapidxml::xml_attribute<> XMLAttr;
+typedef std::vector<XMLNode*> XMLNodeList;
 
 class XMLParser
 {
 public:
     // loads file on construction
     XMLParser(std::string& fileName);
-    XMLParser();
 
     std::string GetFullPath(std::string filename) { return XML_FILE_PATH + filename + XML_FILE_EXT; };
 
@@ -26,7 +27,7 @@ public:
 
     XMLNode* GetRootNode();
     XMLNode* GetNode(XMLNode* parent, const std::string& name);
-    std::vector<XMLNode*> GetAllNodes(XMLNode* parent, const std::string& name);
+    void GetAllNodes(XMLNode* parent, const std::string& name, XMLNodeList& nodesOut);
     std::string GetAttribute(XMLNode* node, const std::string& attrName);
     void XMLParser::SetAttribute(XMLNode* node, const std::string& name, const std::string& value);
     XMLNode* XMLParser::AddNode(XMLNode* parent, const std::string& name, const std::string& value = "");

@@ -2,66 +2,62 @@
 
 #include <string>
 
-#include "include/rapidxml/rapidxml.hpp"
-#include "include/rapidxml/rapidxml_utils.hpp"
-#include "include/rapidxml/rapidxml_print.hpp"
-#include "include/rapidxml/rapidxml_iterators.hpp"
-
 #include "XMLParser.h"
+#include "XMLSerialiser.h"
 
-#define PROPERTY_STR "Property"
-#define TYPE_STR "Type"
-#define NAME_STR "Name"
-#define VALUE_STR "Value"
+#define PROP_STR "property"
+#define TYPE_STR "type"
+#define NAME_STR "name"
+#define VALUE_STR "value"
 
-void SettingConfig::LoadSettingCount()
+void PropertyConfig::LoadPropertyCount()
 {
     using namespace rapidxml;
-    /*xml_document<> doc;
-    std::string path = GetFullPath(m_FileName);
-    if (!GetXMLDoc(path.c_str(), doc))
-    {
-        return;
-    }
+    XMLParser parser(m_FileName);
 
-    rapidxml::xml_node<char>* root = doc.first_node(m_FileName.c_str());
-    if (!root)
-    {
-        return;
-    }
+    XMLNode* root = parser.GetRootNode();
 
-    std::string countStr = root->first_attribute("Count")->value();
-    ValueFromString<u32>((u32)m_SettingCount, countStr.c_str());*/
+    XMLNodeList nodes;
+    parser.GetAllNodes(root, PROP_STR, nodes);
+    
+    m_PropertyCount = nodes.size();
 }
 
-void SettingConfig::LoadSettings()
+void PropertyConfig::LoadProperties()
 {
     XMLParser parser(m_FileName);
 
     XMLNode* root = parser.GetRootNode();
 
-    std::unordered_map<std::string, ISetting*> settingLookup;
-    for (auto* setting : m_Settings)
+    std::unordered_map<std::string, IProperty*> settingLookup;
+    for (auto* setting : m_Properties)
     {
         settingLookup[setting->GetName()] = setting;
     }
+     
+    XMLNodeList nodes;
+    parser.GetAllNodes(root, PROP_STR, nodes);
 
-    // Iterate through all <Setting> nodes
-    for (XMLNode* node = parser.GetNode(root, PROPERTY_STR); node; node = node->next_sibling(PROPERTY_STR))
+    if (nodes.size() > 0)
     {
-        std::string typeStr = parser.GetAttribute(node, TYPE_STR);
-        std::string nameStr = parser.GetAttribute(node, NAME_STR);
-        std::string valueStr = parser.GetAttribute(node, VALUE_STR);
+        // Iterate through all <Property> nodes
+        for (XMLNode* node : nodes)
+        {
+            std::string typeStr = parser.GetAttribute(node, TYPE_STR);
+            std::string nameStr = parser.GetAttribute(node, NAME_STR);
+            std::string valueStr = parser.GetAttribute(node, VALUE_STR);
 
-        auto it = settingLookup.find(nameStr);
-        assert(it != settingLookup.end());
-
-        ISetting* setting = it->second;
-        setting->SetValueFromString(valueStr);
+            auto it = settingLookup.find(nameStr);
+            if (it != settingLookup.end() && valueStr != "")
+            {
+                IProperty* setting = it->second;
+                setting->SetValueFromString(valueStr);
+            }
+        }
     }
 }
 
-void SettingConfig::SaveSettings()
+void PropertyConfig::SaveProperties()
 {
     XMLParser parser(m_FileName);
 
@@ -69,13 +65,13 @@ void SettingConfig::SaveSettings()
 
     XMLNode* root = parser.AddRootNode(m_FileName);
 
-    for (ISetting* setting : m_Settings)
+    for (IProperty* setting : m_Properties)
     {
         std::string type = setting->GetTypeName();
         std::string name = setting->GetName();
         std::string value = setting->GetValueAsString();
 
-        XMLNode* settingNode = parser.AddNode(root, PROPERTY_STR);
+        XMLNode* settingNode = parser.AddNode(root, PROP_STR);
         parser.SetAttribute(settingNode, TYPE_STR, type);
         parser.SetAttribute(settingNode, NAME_STR, name);
         parser.SetAttribute(settingNode, VALUE_STR, value);
@@ -84,19 +80,19 @@ void SettingConfig::SaveSettings()
     parser.SaveFile();
 }
 
-void SettingsManager::RegisterSettingConfig(SettingConfig* settingConfig)
+void PropertyManager::RegisterSettingConfig(PropertyConfig* settingConfig)
 {
-	m_SettingConfigs.push_back(settingConfig);
+	m_PropertyConfigs.push_back(settingConfig);
 }
 
-void SettingsManager::WriteSettingsXML()
+void PropertyManager::WriteXMLs()
 {
-	for (auto& it : m_SettingConfigs)
+	for (auto& it : m_PropertyConfigs)
 	{
-		it->SaveSettings();
+		it->SaveProperties();
 	}
 }
 
-void SettingsManager::ReadSettingsXML()
+void PropertyManager::ReadXMLs()
 {
 }

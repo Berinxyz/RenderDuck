@@ -12,9 +12,9 @@
 typedef u32 ViewportHandle;
 typedef u64 ViewportTextureHandle;
 
-SETTING_CONFIG_BEGIN(UISettings)
-	SETTING(bool, DockSpace, false)
-SETTING_CONFIG_END
+PROPERTY_CONFIG_BEGIN(UISettings)
+	PROPERTY(bool, DockSpace, false)
+PROPERTY_CONFIG_END
 
 struct Viewport
 {

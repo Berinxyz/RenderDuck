@@ -9,62 +9,62 @@
 // <------------------------------------------------ SETTING MANAGER ---------------------------------------------->
 //
 
-class SettingConfig;
+class PropertyConfig;
 
-class SettingsManager;
-typedef std::shared_ptr<SettingsManager> SettingManagerRef;
-class SettingsManager
+class PropertyManager;
+typedef std::shared_ptr<PropertyManager> SettingManagerRef;
+class PropertyManager
 {
 public:
 	// Singleton
-	SettingsManager() = default;
-	~SettingsManager() = default;
-	SettingsManager(SettingsManager const&) = delete;
-	void operator=(SettingsManager const&) = delete;
+	PropertyManager() = default;
+	~PropertyManager() = default;
+	PropertyManager(PropertyManager const&) = delete;
+	void operator=(PropertyManager const&) = delete;
 
-	static SettingsManager& Instance() 
+	static PropertyManager& Instance() 
 	{
-		static SettingsManager Instance;
+		static PropertyManager Instance;
 		return Instance;
 	};
 
 	// Called by settings configs to register them in m_SettingConfigs
-	void RegisterSettingConfig(SettingConfig* settingConfig);
+	void RegisterSettingConfig(PropertyConfig* propertyConfig);
 
 	// Called by UIManager
-	void WriteSettingsXML();
-	void ReadSettingsXML();
+	void WriteXMLs();
+	void ReadXMLs();
 
 private:
 
-	std::vector<SettingConfig*> m_SettingConfigs;
+	std::vector<PropertyConfig*> m_PropertyConfigs;
 };
 
 //
 // <------------------------------------------------ SETTING CONFIG ---------------------------------------------->
 //
 
-struct ISetting;
-class SettingConfig
+struct IProperty;
+class PropertyConfig
 {
 public:
 
-	SettingConfig(std::string name) : m_FileName(name)
+	PropertyConfig(std::string name) : m_FileName(name)
 	{
-		SettingsManager::Instance().RegisterSettingConfig(this);
+		PropertyManager::Instance().RegisterSettingConfig(this);
 		// Loads the recorded setting count from the xml
-		//LoadSettingCount();
+		LoadPropertyCount();
 	}
 
-	void RegisterSetting(ISetting* setting) 
+	void RegisterProperty(IProperty* property) 
 	{ 
-		assert(setting != nullptr);
-		m_Settings.push_back(setting);
+		assert(property != nullptr);
+		m_Properties.push_back(property);
 
-		// Once all the setting maps have registered to the config, we can load their values from the xml
-		if (m_Settings.size() == m_SettingCount)
+		// Once all the properties for this class have registered to the config, we can load their values from the xml
+		if (m_PropertyCount > 0 && m_Properties.size() == m_PropertyCount)
 		{
-			LoadSettings();
+			LoadProperties();
 		}
 	}
 
@@ -73,15 +73,15 @@ public:
 		return m_FileName; 
 	}
 
-	void LoadSettingCount();
-	void LoadSettings();
-	void SaveSettings();
+	void LoadPropertyCount();
+	void LoadProperties();
+	void SaveProperties();
 
 private:
 
-	u32 m_SettingCount;
+	u32 m_PropertyCount;
 	std::string m_FileName;
-	std::vector<ISetting*> m_Settings;
+	std::vector<IProperty*> m_Properties;
 };
 
 //
@@ -89,27 +89,27 @@ private:
 //
 
 // template typeless interface used by the config to store list of setting maps
-struct ISetting 
+struct IProperty 
 {
-	virtual ~ISetting() = default;
+	virtual ~IProperty() = default;
 	virtual std::string GetTypeName() const = 0;
 	virtual std::string GetName() const = 0;
 	virtual std::string GetValueAsString() const = 0;
-	virtual void SetValueFromString(const std::string& str) = 0;
+	virtual void SetValueFromString(std::string& str) = 0;
 };
 
 class UIManager;
 template<typename T>
-class SettingMap : ISetting
+class PropertyMap : IProperty
 {
 public:
 	friend UIManager;
 
-	SettingMap(SettingConfig* parentConfig, std::string typeName, std::string name, T value)
+	PropertyMap(PropertyConfig* parentConfig, std::string typeName, std::string name, T value)
 		: m_TypeName(typeName), m_Value(value), m_Name(name)
 	{	
 		// register to the config when the setting map is created
-		parentConfig->RegisterSetting(this);
+		parentConfig->RegisterProperty(this);
 	}
 
 	virtual std::string GetTypeName() const override 
@@ -135,8 +135,7 @@ public:
 	// saving and loading from xml
 	virtual std::string GetValueAsString() const override
 	{
-		XMLSerialiser serialiser;
-		serialiser.Write();
+		ValueSerialiser serialiser(ValueSerialiser::ToString);
 
 		std::string valStr;
 		if (serialiser.SerialiseValueByName(m_TypeName, valStr, (void*)&m_Value))
@@ -147,18 +146,16 @@ public:
 		return "Unsupported Type";
 	}
 
-	virtual void SetValueFromString(const std::string& valueStr)
+	virtual void SetValueFromString(std::string& valueStr)
 	{
-		XMLSerialiser serialiser;
-		serialiser.Read();
-		std::string str = valueStr;
-		serialiser.SerialiseValueByName(m_TypeName, str, (void*)&m_Value);
+		ValueSerialiser serialiser(ValueSerialiser::FromString);
+		serialiser.SerialiseValueByName(m_TypeName, valueStr, (void*)&m_Value);
 	}
 
 
 private:
 
-	SettingMap() = delete;
+	PropertyMap() = delete;
 
 	T m_Value;
 	std::string m_Name;
@@ -169,14 +166,14 @@ private:
 // <------------------------------------------------ SETUP MACRO ---------------------------------------------->
 //
 
-#define SETTING_STR(s) #s
+#define PROPERTY_STR(s) #s
 
-#define SETTING_CONFIG_BEGIN(a) \
-	class a : SettingConfig {  \
+#define PROPERTY_CONFIG_BEGIN(a) \
+	class a : PropertyConfig {  \
 		public: \
-			a() : SettingConfig(SETTING_STR(a)) {}	
+			a() : PropertyConfig(PROPERTY_STR(a)) {}	
 
-#define SETTING_CONFIG_END };
+#define PROPERTY_CONFIG_END };
 
-#define SETTING(a, b, c) SettingMap<a> m_##b = SettingMap<a>(this, SETTING_STR(a), SETTING_STR(b), c);
+#define PROPERTY(a, b, c)	PropertyMap<a> m_##b = PropertyMap<a>(this, PROPERTY_STR(a), PROPERTY_STR(b), c);
 

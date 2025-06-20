@@ -1,20 +1,23 @@
 #include "XMLSerialiser.h"
 
+#include "EngineCore.h"
+
 #include <cstdio>
 #include <sstream>
 
-#define Serialize(type) else if (typeName == #type)\
-    {\
-        SerialiseValue(valueStr, static_cast<type*>(valuePtr));\
+bool ValueSerialiser::SerialiseValueByName(const std::string& typeName, std::string& valueStr, void* valuePtr)
+{
+    if (!valuePtr)
+    {
+        assert(valuePtr);
+        return false;
     }
 
-bool XMLSerialiser::SerialiseValueByName(const std::string& typeName, std::string& valueStr, void* valuePtr)
-{
     if (typeName == "bool")
     {
         SerialiseValue(valueStr, static_cast<bool*>(valuePtr));
     }
-    else if (typeName == "string")
+    else if (typeName == "std::string")
     {
         SerialiseValue(valueStr, static_cast<std::string*>(valuePtr));
     }
@@ -75,7 +78,7 @@ bool XMLSerialiser::SerialiseValueByName(const std::string& typeName, std::strin
 }
 
 
-s8 XMLSerialiser::SerialiseValue(std::string& valueStr, s8* value)
+s8 ValueSerialiser::SerialiseValue(std::string& valueStr, s8* value)
 {
     if (m_Writing)
     {
@@ -94,7 +97,7 @@ s8 XMLSerialiser::SerialiseValue(std::string& valueStr, s8* value)
     return 0;
 }
 
-s16 XMLSerialiser::SerialiseValue(std::string& valueStr, s16* value)
+s16 ValueSerialiser::SerialiseValue(std::string& valueStr, s16* value)
 {
     if (m_Writing)
     {
@@ -113,7 +116,7 @@ s16 XMLSerialiser::SerialiseValue(std::string& valueStr, s16* value)
     return 0;
 }
 
-s32 XMLSerialiser::SerialiseValue(std::string& valueStr, s32* value)
+s32 ValueSerialiser::SerialiseValue(std::string& valueStr, s32* value)
 {
     if (m_Writing)
     {
@@ -132,7 +135,7 @@ s32 XMLSerialiser::SerialiseValue(std::string& valueStr, s32* value)
     return 0;
 }
 
-s64 XMLSerialiser::SerialiseValue(std::string& valueStr, s64* value)
+s64 ValueSerialiser::SerialiseValue(std::string& valueStr, s64* value)
 {
     if (m_Writing)
     {
@@ -151,7 +154,7 @@ s64 XMLSerialiser::SerialiseValue(std::string& valueStr, s64* value)
     return 0;
 }
 
-u8 XMLSerialiser::SerialiseValue(std::string& valueStr, u8* value)
+u8 ValueSerialiser::SerialiseValue(std::string& valueStr, u8* value)
 {
     if (m_Writing)
     {
@@ -170,7 +173,7 @@ u8 XMLSerialiser::SerialiseValue(std::string& valueStr, u8* value)
     return 0;
 }
 
-u16 XMLSerialiser::SerialiseValue(std::string& valueStr, u16* value)
+u16 ValueSerialiser::SerialiseValue(std::string& valueStr, u16* value)
 {
     if (m_Writing)
     {
@@ -189,7 +192,7 @@ u16 XMLSerialiser::SerialiseValue(std::string& valueStr, u16* value)
     return 0;
 }
 
-u32 XMLSerialiser::SerialiseValue(std::string& valueStr, u32* value)
+u32 ValueSerialiser::SerialiseValue(std::string& valueStr, u32* value)
 {
     if (m_Writing)
     {
@@ -208,7 +211,7 @@ u32 XMLSerialiser::SerialiseValue(std::string& valueStr, u32* value)
     return 0;
 }
 
-u64 XMLSerialiser::SerialiseValue(std::string& valueStr, u64* value)
+u64 ValueSerialiser::SerialiseValue(std::string& valueStr, u64* value)
 {
     if (m_Writing)
     {
@@ -227,7 +230,7 @@ u64 XMLSerialiser::SerialiseValue(std::string& valueStr, u64* value)
     return 0;
 }
 
-f32 XMLSerialiser::SerialiseValue(std::string& valueStr, f32* value)
+f32 ValueSerialiser::SerialiseValue(std::string& valueStr, f32* value)
 {
     if (m_Writing)
     {
@@ -246,7 +249,7 @@ f32 XMLSerialiser::SerialiseValue(std::string& valueStr, f32* value)
     return 0.0f;
 }
 
-f64 XMLSerialiser::SerialiseValue(std::string& valueStr, f64* value)
+f64 ValueSerialiser::SerialiseValue(std::string& valueStr, f64* value)
 {
     if (m_Writing)
     {
@@ -265,7 +268,76 @@ f64 XMLSerialiser::SerialiseValue(std::string& valueStr, f64* value)
     return 0.0;
 }
 
-bool XMLSerialiser::SerialiseValue(std::string& valueStr, bool* value)
+float4 ValueSerialiser::SerialiseValue(std::string& valueStr, float4* value)
+{
+    if (m_Writing)
+    {
+        assert(value);
+        std::ostringstream oss;
+        oss << value->x << " " << value->y << " " << value->z << " " << value->w;
+        valueStr = oss.str();
+    }
+    else
+    {
+        float x, y, z, w;
+        sscanf_s(valueStr.c_str(), "%f %f %f %f", &x, &y, &z, &w);
+
+        if (value)
+        {
+            *value = { x, y, z, w };
+        }
+
+        return { x, y, z, w };
+    }
+}
+
+float3 ValueSerialiser::SerialiseValue(std::string& valueStr, float3* value)
+{
+    if (m_Writing)
+    {
+        assert(value);
+        std::ostringstream oss;
+        oss << value->x << " " << value->y << " " << value->z << " ";
+        valueStr = oss.str();
+    }
+    else
+    {
+        float x, y, z, w;
+        sscanf_s(valueStr.c_str(), "%f %f %f", &x, &y, &z);
+
+        if (value)
+        {
+            *value = { x, y, z };
+        }
+
+        return { x, y, z };
+    }
+}
+
+float2 ValueSerialiser::SerialiseValue(std::string& valueStr, float2* value)
+{
+    if (m_Writing)
+    {
+        assert(value);
+        std::ostringstream oss;
+        oss << value->x << " " << value->y << " ";
+        valueStr = oss.str();
+    }
+    else
+    {
+        float x, y, z, w;
+        sscanf_s(valueStr.c_str(), "%f %f", &x, &y);
+
+        if (value)
+        {
+            *value = { x, y };
+        }
+
+        return { x, y };
+    }
+}
+
+bool ValueSerialiser::SerialiseValue(std::string& valueStr, bool* value)
 {
     if (m_Writing)
     {
@@ -284,7 +356,7 @@ bool XMLSerialiser::SerialiseValue(std::string& valueStr, bool* value)
     }
 }
 
-std::string XMLSerialiser::SerialiseValue(std::string& valueStr, std::string* value)
+std::string ValueSerialiser::SerialiseValue(std::string& valueStr, std::string* value)
 {
     if (m_Writing)
     {
@@ -302,7 +374,7 @@ std::string XMLSerialiser::SerialiseValue(std::string& valueStr, std::string* va
     }
 }
 
-DirectX::XMVECTOR XMLSerialiser::SerialiseValue(std::string& valueStr, DirectX::XMVECTOR* value)
+vec4 ValueSerialiser::SerialiseValue(std::string& valueStr, vec4* value)
 {
     if (m_Writing)
     {
@@ -314,7 +386,7 @@ DirectX::XMVECTOR XMLSerialiser::SerialiseValue(std::string& valueStr, DirectX::
     else
     {
         float x, y, z, w;
-        sscanf_s(valueStr.c_str(), "%f,%f,%f,%f", &x, &y, &z, &w);
+        sscanf_s(valueStr.c_str(), "%f %f %f %f", &x, &y, &z, &w);
 
         if (value)
         {
@@ -325,7 +397,7 @@ DirectX::XMVECTOR XMLSerialiser::SerialiseValue(std::string& valueStr, DirectX::
     }
 }
 
-ImVec4 XMLSerialiser::SerialiseValue(std::string& valueStr, ImVec4* value)
+ImVec4 ValueSerialiser::SerialiseValue(std::string& valueStr, ImVec4* value)
 {
     if (m_Writing)
     {
@@ -337,7 +409,7 @@ ImVec4 XMLSerialiser::SerialiseValue(std::string& valueStr, ImVec4* value)
     else
     {
         float x, y, z, w;
-        sscanf_s(valueStr.c_str(), "%f,%f,%f,%f", &x, &y, &z, &w);
+        sscanf_s(valueStr.c_str(), "%f %f %f %f", &x, &y, &z, &w);
 
         if (value)
         {
