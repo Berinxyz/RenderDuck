@@ -31,6 +31,18 @@
     <Filter Include="Source Files\XML">
       <UniqueIdentifier>{a4f17ed9-77cf-4c11-9de9-18f5f5eb947f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\ECS">
+      <UniqueIdentifier>{04a54989-89cb-4440-9f0e-2eeb89386903}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ECS\Components">
+      <UniqueIdentifier>{aa55566d-8eb7-4715-b74c-86c685eba229}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ECS">
+      <UniqueIdentifier>{71b1afe6-1e16-4b9a-9bcd-a72116e677c5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ECS\Components">
+      <UniqueIdentifier>{f660fbb8-ae0c-4a63-bb90-9a7330978e1a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp">
@@ -113,6 +125,15 @@
     </ClCompile>
     <ClCompile Include="XMLSerialiser.cpp">
       <Filter>Source Files\XML</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\Components\TransformComponent.cpp">
+      <Filter>Source Files\ECS\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\Components\MeshComponent.cpp">
+      <Filter>Source Files\ECS\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="ECS\EntityAdmin.cpp">
+      <Filter>Source Files\ECS</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -235,6 +256,24 @@
     </ClInclude>
     <ClInclude Include="XMLSerialiser.h">
       <Filter>Header Files\XML</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Components\Component.h">
+      <Filter>Header Files\ECS\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Handle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Components\MeshComponent.h">
+      <Filter>Header Files\ECS\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Components\TransformComponent.h">
+      <Filter>Header Files\ECS\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\Entity.h">
+      <Filter>Header Files\ECS</Filter>
+    </ClInclude>
+    <ClInclude Include="ECS\EntityAdmin.h">
+      <Filter>Header Files\ECS</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

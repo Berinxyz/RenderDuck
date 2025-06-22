@@ -116,6 +116,11 @@ XMLNode* XMLParser::GetNode(XMLNode* parent, const std::string& name)
 
 void XMLParser::GetAllNodes(XMLNode* parent, const std::string& name, XMLNodeList& nodesOut)
 {
+    if (!parent)
+    {
+        return;
+    }
+
     for (XMLNode* node = parent->first_node(name.c_str()); node; node = node->next_sibling())
     {
         nodesOut.push_back(node);
