@@ -10,7 +10,8 @@ EntityHandle EntityAdmin::CreateEntity()
 
 	if (auto it = m_Entities.find(handle); it == m_Entities.end())
 	{
-		EntityRef entity = std::make_shared<Entity>(handle, this);
+		Entity entity(handle, this);
+		m_Entities[handle] = entity;
 	}
 	else
 	{

@@ -9,8 +9,7 @@ class EntityAdmin;
 class Entity
 {
 public:
-	Entity(EntityHandle& handle, std::weak_ptr<EntityAdmin> admin) : m_Handle(handle), m_EntityAdmin(admin) {}
-
+	Entity(EntityHandle handle, EntityAdmin* admin) : m_Handle(handle), m_EntityAdmin(admin) {}
 	const EntityHandle GetHandle() { return m_Handle; };
 
 	template<typename T>
@@ -23,7 +22,7 @@ public:
 private:
 
 	EntityHandle m_Handle;
-	std::weak_ptr<EntityAdmin> m_EntityAdmin;
+	EntityAdmin* m_EntityAdmin;
 };
 
 typedef std::shared_ptr<Entity> EntityRef; 
