@@ -11,6 +11,29 @@ using Microsoft::WRL::ComPtr;
 using namespace std;
 using namespace DirectX;
 
+#define DEBUG
+
+inline void GetAssetsPath(_Out_writes_(pathSize) WCHAR* path, UINT pathSize)
+{
+	if (path == nullptr)
+	{
+		throw std::exception();
+	}
+
+	DWORD size = GetModuleFileName(nullptr, path, pathSize);
+	if (size == 0 || size == pathSize)
+	{
+		// Method failed or path was truncated.
+		throw std::exception();
+	}
+
+	WCHAR* lastSlash = wcsrchr(path, L'\\');
+	if (lastSlash)
+	{
+		*(lastSlash + 1) = L'\0';
+	}
+}
+
 LRESULT CALLBACK
 MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -31,6 +54,10 @@ D3DApp::D3DApp(HINSTANCE hInstance)
     // Only one D3DApp can be constructed.
     assert(s_App == nullptr);
     s_App = this;
+
+	WCHAR assetsPath[512];
+	GetAssetsPath(assetsPath, _countof(assetsPath));
+	m_CSOPath = assetsPath;
 }
 
 D3DApp::~D3DApp()
@@ -684,4 +711,15 @@ void D3DApp::LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format)
 
         ::OutputDebugString(text.c_str());
     }
+}
+
+std::wstring D3DApp::GetAssetPath(LPCWSTR shader)
+{
+	return m_CSOPath + shader + L".cso";
+}
+
+Microsoft::WRL::ComPtr<ID3DBlob> D3DApp::LoadShaderInternal(const std::string shaderName, const std::string append)
+{
+	const std::wstring assetName = AnsiToWString(shaderName + append);
+	return GraphicsUtils::LoadShader(GetAssetPath(assetName.c_str()).c_str());
 }

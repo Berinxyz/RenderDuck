@@ -73,6 +73,16 @@ protected:
     void LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format);
 
     bool FormatIsUAVCompatible();
+
+    Microsoft::WRL::ComPtr<ID3DBlob> LoadVertexShader(const std::string shaderName) { return LoadShaderInternal(shaderName, "_VS"); }
+    Microsoft::WRL::ComPtr<ID3DBlob> LoadPixelShader(const std::string shaderName) { return LoadShaderInternal(shaderName, "_PS"); }
+    Microsoft::WRL::ComPtr<ID3DBlob> LoadComputeShader(const std::string shaderName) { return LoadShaderInternal(shaderName, "_CS"); }
+
+    std::wstring GetAssetPath(LPCWSTR shader);
+
+private:
+    Microsoft::WRL::ComPtr<ID3DBlob> LoadShaderInternal(const std::string shaderName, const std::string append);
+
 protected:
 
     static D3DApp* s_App;
@@ -125,5 +135,7 @@ protected:
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 	int m_ClientWidth = 1600;
 	int m_ClientHeight = 900;
+
+    std::wstring m_CSOPath;
 };
 

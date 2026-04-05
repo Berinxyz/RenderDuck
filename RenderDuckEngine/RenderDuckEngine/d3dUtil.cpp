@@ -5,6 +5,8 @@
 
 using Microsoft::WRL::ComPtr;
 
+static std::wstring s_ShaderFolder = L"Shaders\\";
+
 DxException::DxException(HRESULT hr, const std::wstring& functionName, const std::wstring& filename, int lineNumber) :
     ErrorCode(hr),
     FunctionName(functionName),
@@ -13,12 +15,12 @@ DxException::DxException(HRESULT hr, const std::wstring& functionName, const std
 {
 }
 
-bool d3dUtil::IsKeyDown(int vkeyCode)
+bool GraphicsUtils::IsKeyDown(int vkeyCode)
 {
     return (GetAsyncKeyState(vkeyCode) & 0x8000) != 0;
 }
 
-ComPtr<ID3DBlob> d3dUtil::LoadBinary(const std::wstring& filename)
+ComPtr<ID3DBlob> GraphicsUtils::LoadBinary(const std::wstring& filename)
 {
     std::ifstream fin(filename, std::ios::binary);
 
@@ -35,7 +37,7 @@ ComPtr<ID3DBlob> d3dUtil::LoadBinary(const std::wstring& filename)
     return blob;
 }
 
-Microsoft::WRL::ComPtr<ID3D12Resource> d3dUtil::CreateDefaultBuffer(
+Microsoft::WRL::ComPtr<ID3D12Resource> GraphicsUtils::CreateDefaultBuffer(
     ID3D12Device* device,
     ID3D12GraphicsCommandList* cmdList,
     const void* initData,
@@ -87,7 +89,67 @@ Microsoft::WRL::ComPtr<ID3D12Resource> d3dUtil::CreateDefaultBuffer(
     return defaultBuffer;
 }
 
-ComPtr<ID3DBlob> d3dUtil::CompileShader(
+inline HRESULT ReadDataFromFile(LPCWSTR filename, byte** data, UINT* size)
+{
+    using namespace Microsoft::WRL;
+
+#if WINVER >= _WIN32_WINNT_WIN8
+    CREATEFILE2_EXTENDED_PARAMETERS extendedParams = {};
+    extendedParams.dwSize = sizeof(CREATEFILE2_EXTENDED_PARAMETERS);
+    extendedParams.dwFileAttributes = FILE_ATTRIBUTE_NORMAL;
+    extendedParams.dwFileFlags = FILE_FLAG_SEQUENTIAL_SCAN;
+    extendedParams.dwSecurityQosFlags = SECURITY_ANONYMOUS;
+    extendedParams.lpSecurityAttributes = nullptr;
+    extendedParams.hTemplateFile = nullptr;
+
+    Wrappers::FileHandle file(CreateFile2(filename, GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, &extendedParams));
+#else
+    Wrappers::FileHandle file(CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN | SECURITY_SQOS_PRESENT | SECURITY_ANONYMOUS, nullptr));
+#endif
+    if (file.Get() == INVALID_HANDLE_VALUE)
+    {
+        throw std::exception();
+    }
+
+    FILE_STANDARD_INFO fileInfo = {};
+    if (!GetFileInformationByHandleEx(file.Get(), FileStandardInfo, &fileInfo, sizeof(fileInfo)))
+    {
+        throw std::exception();
+    }
+
+    if (fileInfo.EndOfFile.HighPart != 0)
+    {
+        throw std::exception();
+    }
+
+    *data = reinterpret_cast<byte*>(malloc(fileInfo.EndOfFile.LowPart));
+    *size = fileInfo.EndOfFile.LowPart;
+
+    if (!ReadFile(file.Get(), *data, fileInfo.EndOfFile.LowPart, nullptr, nullptr))
+    {
+        throw std::exception();
+    }
+
+    return S_OK;
+}
+
+ComPtr<ID3DBlob> GraphicsUtils::LoadShader(LPCWSTR filename)
+{
+    ComPtr<ID3DBlob> blob = nullptr;
+    byte* shaderData = nullptr;
+    UINT sizeBytes = 0;
+    std::wstring path = filename;
+    ThrowIfFailed(ReadDataFromFile(path.c_str(), &shaderData, &sizeBytes));
+    D3DCreateBlob(sizeBytes, &blob);
+    std::memcpy(blob->GetBufferPointer(), shaderData, sizeBytes);
+
+    delete shaderData;
+    shaderData = nullptr;
+
+    return blob;
+}
+
+ComPtr<ID3DBlob> GraphicsUtils::CompileShader(
 	const std::wstring& filename,
 	const D3D_SHADER_MACRO* defines,
 	const std::string& entrypoint,
@@ -111,6 +173,11 @@ ComPtr<ID3DBlob> d3dUtil::CompileShader(
 	ThrowIfFailed(hr);
 
 	return byteCode;
+}
+
+D3D12_SHADER_BYTECODE GraphicsUtils::GetShaderBytecode(const ComPtr<ID3DBlob> blob)
+{
+    return D3D12_SHADER_BYTECODE({ reinterpret_cast<BYTE*>(blob->GetBufferPointer()), blob->GetBufferSize() });
 }
 
 std::wstring DxException::ToString()const

@@ -105,9 +105,12 @@ private:
     void BuildFrameResources();
     void BuildMaterials();
     void BuildRenderItems();
+    void BuildMainRTV();
     void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
     void DrawSceneToShadowMap();
     void DrawNormalsAndDepth();
+
+    std::wstring GetAssetPath(LPCWSTR shader);
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE GetCpuSrv(int index)const;
     CD3DX12_GPU_DESCRIPTOR_HANDLE GetGpuSrv(int index)const;
@@ -125,12 +128,7 @@ private:
     static void ImGuiAllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart);
     static void ImGuiFreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle);
 
-    void BuildMainRTV();
-
-
     RenderSettings m_RenderSettings;
-
-    TestSettings m_TestSettings;
 
     std::shared_ptr<UIManager> m_UIManager;
 

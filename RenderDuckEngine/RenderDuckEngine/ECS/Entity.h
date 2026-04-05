@@ -10,6 +10,7 @@ class Entity
 {
 public:
 	Entity(EntityHandle handle, EntityAdmin* admin) : m_Handle(handle), m_EntityAdmin(admin) {}
+	Entity() {}
 	const EntityHandle GetHandle() { return m_Handle; };
 
 	template<typename T>

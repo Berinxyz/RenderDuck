@@ -86,7 +86,7 @@ inline std::wstring AnsiToWString(const std::string& str)
 #endif 		
     */
 
-class d3dUtil
+class GraphicsUtils
 {
 public:
 
@@ -124,6 +124,9 @@ public:
 		const D3D_SHADER_MACRO* defines,
 		const std::string& entrypoint,
 		const std::string& target);
+
+    static D3D12_SHADER_BYTECODE GetShaderBytecode(const Microsoft::WRL::ComPtr<ID3DBlob> blob);
+    static Microsoft::WRL::ComPtr<ID3DBlob> LoadShader(LPCWSTR filename);
 };
 
 class DxException

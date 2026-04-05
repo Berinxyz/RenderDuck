@@ -11,7 +11,6 @@
 const int gNumFrameResources = 3;
 const u32 c_MaxSrvDescriptors = 10000;
 
-
 Renderer::Renderer(HINSTANCE hInstance)
     : D3DApp(hInstance)
     , m_DescriptorCount(0)
@@ -36,6 +35,16 @@ bool Renderer::Initialize()
 {
     if(!D3DApp::Initialize())
         return false;
+
+    D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = { D3D_SHADER_MODEL_6_0 };
+    if (FAILED(m_d3dDevice->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel)))
+        || (shaderModel.HighestShaderModel < D3D_SHADER_MODEL_6_0))
+    {
+#ifdef _DEBUG
+        OutputDebugStringA("ERROR: Shader Model 6.0 is not supported!\n");
+#endif
+        throw std::exception("Shader Model 6.0 is not supported!");
+    }
 
     // Reset the command list to prep for initialization commands.
     ThrowIfFailed(m_CommandList->Reset(m_DirectCmdListAlloc.Get(), nullptr));
@@ -913,27 +922,26 @@ void Renderer::BuildShadersAndInputLayout()
 		NULL, NULL
 	};
 
-	m_Shaders["standardVS"] = d3dUtil::CompileShader(L"Shaders\\Default.hlsl", nullptr, "VS", "vs_5_1");
-	m_Shaders["opaquePS"] = d3dUtil::CompileShader(L"Shaders\\Default.hlsl", nullptr, "PS", "ps_5_1");
+    m_Shaders["standardVS"] = LoadVertexShader("Default");
+    m_Shaders["opaquePS"] = LoadPixelShader("Default");
 
-    m_Shaders["shadowVS"] = d3dUtil::CompileShader(L"Shaders\\Shadows.hlsl", nullptr, "VS", "vs_5_1");
-    m_Shaders["shadowOpaquePS"] = d3dUtil::CompileShader(L"Shaders\\Shadows.hlsl", nullptr, "PS", "ps_5_1");
-    m_Shaders["shadowAlphaTestedPS"] = d3dUtil::CompileShader(L"Shaders\\Shadows.hlsl", alphaTestDefines, "PS", "ps_5_1");
-	
-    m_Shaders["debugVS"] = d3dUtil::CompileShader(L"Shaders\\ShadowDebug.hlsl", nullptr, "VS", "vs_5_1");
-    m_Shaders["debugPS"] = d3dUtil::CompileShader(L"Shaders\\ShadowDebug.hlsl", nullptr, "PS", "ps_5_1");
+    m_Shaders["shadowVS"] = LoadVertexShader("Shadows");
+    m_Shaders["shadowOpaquePS"] = LoadPixelShader("Shadows");
 
-    m_Shaders["drawNormalsVS"] = d3dUtil::CompileShader(L"Shaders\\DrawNormals.hlsl", nullptr, "VS", "vs_5_1");
-    m_Shaders["drawNormalsPS"] = d3dUtil::CompileShader(L"Shaders\\DrawNormals.hlsl", nullptr, "PS", "ps_5_1");
+    m_Shaders["debugVS"] = LoadVertexShader("ShadowDebug");
+    m_Shaders["debugPS"] = LoadPixelShader("ShadowDebug");
 
-    m_Shaders["ssaoVS"] = d3dUtil::CompileShader(L"Shaders\\Ssao.hlsl", nullptr, "VS", "vs_5_1");
-    m_Shaders["ssaoPS"] = d3dUtil::CompileShader(L"Shaders\\Ssao.hlsl", nullptr, "PS", "ps_5_1");
+    m_Shaders["drawNormalsVS"] = LoadVertexShader("DrawNormals");
+    m_Shaders["drawNormalsPS"] = LoadPixelShader("DrawNormals");
 
-    m_Shaders["ssaoBlurVS"] = d3dUtil::CompileShader(L"Shaders\\SsaoBlur.hlsl", nullptr, "VS", "vs_5_1");
-    m_Shaders["ssaoBlurPS"] = d3dUtil::CompileShader(L"Shaders\\SsaoBlur.hlsl", nullptr, "PS", "ps_5_1");
+    m_Shaders["ssaoVS"] = LoadVertexShader("Ssao");
+    m_Shaders["ssaoPS"] = LoadPixelShader("Ssao");
 
-	m_Shaders["skyVS"] = d3dUtil::CompileShader(L"Shaders\\Sky.hlsl", nullptr, "VS", "vs_5_1");
-	m_Shaders["skyPS"] = d3dUtil::CompileShader(L"Shaders\\Sky.hlsl", nullptr, "PS", "ps_5_1");
+    m_Shaders["ssaoBlurVS"] = LoadVertexShader("SsaoBlur");
+    m_Shaders["ssaoBlurPS"] = LoadPixelShader("SsaoBlur");
+
+	m_Shaders["skyVS"] = LoadVertexShader("Sky");
+	m_Shaders["skyPS"] = LoadPixelShader("Sky");
 
     m_InputLayout =
     {
@@ -1071,10 +1079,10 @@ void Renderer::BuildShapeGeometry()
 	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
 	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
-	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(m_d3dDevice.Get(),
+	geo->VertexBufferGPU = GraphicsUtils::CreateDefaultBuffer(m_d3dDevice.Get(),
 		m_CommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
 
-	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(m_d3dDevice.Get(),
+	geo->IndexBufferGPU = GraphicsUtils::CreateDefaultBuffer(m_d3dDevice.Get(),
 		m_CommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
 
 	geo->VertexByteStride = sizeof(Vertex);
@@ -1181,10 +1189,10 @@ void Renderer::BuildSkullGeometry()
     ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
     CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
-    geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(m_d3dDevice.Get(),
+    geo->VertexBufferGPU = GraphicsUtils::CreateDefaultBuffer(m_d3dDevice.Get(),
         m_CommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
 
-    geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(m_d3dDevice.Get(),
+    geo->IndexBufferGPU = GraphicsUtils::CreateDefaultBuffer(m_d3dDevice.Get(),
         m_CommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
 
     geo->VertexByteStride = sizeof(Vertex);
@@ -1212,15 +1220,15 @@ void Renderer::BuildPSOs()
     basePsoDesc.InputLayout = { m_InputLayout.data(), (UINT)m_InputLayout.size() };
     basePsoDesc.pRootSignature = m_RootSignature.Get();
     basePsoDesc.VS =
-	{ 
-		reinterpret_cast<BYTE*>(m_Shaders["standardVS"]->GetBufferPointer()), 
-		m_Shaders["standardVS"]->GetBufferSize()
-	};
-    basePsoDesc.PS =
-	{ 
-		reinterpret_cast<BYTE*>(m_Shaders["opaquePS"]->GetBufferPointer()),
-		m_Shaders["opaquePS"]->GetBufferSize()
-	};
+    {
+        reinterpret_cast<BYTE*>(m_Shaders["standardVS"]->GetBufferPointer()),
+        m_Shaders["standardVS"]->GetBufferSize()
+    };
+    basePsoDesc.PS = 
+    {
+        reinterpret_cast<BYTE*>(m_Shaders["opaquePS"]->GetBufferPointer()),
+        m_Shaders["opaquePS"]->GetBufferSize()
+    };;
     basePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     basePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     basePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -1545,7 +1553,7 @@ void Renderer::BuildRenderItems()
 
 void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
 {
-    UINT objCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
+    UINT objCBByteSize = GraphicsUtils::CalcConstantBufferByteSize(sizeof(ObjectConstants));
  
 	auto objectCB = m_CurrFrameResource->ObjectCB->Resource();
 
@@ -1583,7 +1591,7 @@ void Renderer::DrawSceneToShadowMap()
     m_CommandList->OMSetRenderTargets(0, nullptr, false, &m_ShadowMap->Dsv());
 
     // Bind the pass constant buffer for the shadow map pass.
-    UINT passCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PassConstants));
+    UINT passCBByteSize = GraphicsUtils::CalcConstantBufferByteSize(sizeof(PassConstants));
     auto passCB = m_CurrFrameResource->PassCB->Resource();
     D3D12_GPU_VIRTUAL_ADDRESS passCBAddress = passCB->GetGPUVirtualAddress() + 1*passCBByteSize;
     m_CommandList->SetGraphicsRootConstantBufferView(1, passCBAddress);

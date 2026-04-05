@@ -280,5 +280,17 @@
     <None Include="imgui.ini">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Shaders\Common.hlsl" />
+    <CustomBuild Include="Shaders\Default.hlsl" />
+    <CustomBuild Include="Shaders\DrawNormals.hlsl" />
+    <CustomBuild Include="Shaders\LightingUtil.hlsl" />
+    <CustomBuild Include="Shaders\ShadowDebug.hlsl" />
+    <CustomBuild Include="Shaders\Shadows.hlsl" />
+    <CustomBuild Include="Shaders\Sky.hlsl" />
+    <CustomBuild Include="Shaders\Ssao.hlsl" />
+    <CustomBuild Include="Shaders\SsaoBlur.hlsl" />
   </ItemGroup>
 </Project>
