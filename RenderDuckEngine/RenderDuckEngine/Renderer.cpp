@@ -74,7 +74,7 @@ bool Renderer::Initialize()
     m_Ssao->SetPSOs(m_PSOs["ssao"].Get(), m_PSOs["ssaoBlur"].Get());
 
     m_UIManager = std::make_shared<UIManager>();
-    m_UIManager->InitialiseForDX12(MainWnd(), m_d3dDevice.Get(), m_CommandQueue.Get(), m_SrvDescriptorHeap.Get(), s_SwapChainBufferCount, this);
+    m_UIManager->InitialiseForDX12(MainWnd(), m_d3dDevice.Get(), m_CommandQueue.Get(), m_SrvDescriptorHeap.Get(), s_SwapChainBufferCount);
     m_UIManager->InitStyle();
 
     // Execute the initialization commands.
@@ -244,7 +244,6 @@ void Renderer::Update(const GameTimer& gt)
         XMStoreFloat3(&m_RotatedLightDirections[i], lightDir);
     }
 
-	AnimateMaterials(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
     UpdateShadowTransform(gt);
@@ -253,7 +252,7 @@ void Renderer::Update(const GameTimer& gt)
     UpdateSsaoCB(gt);
 }
 
-void Renderer::Draw(const GameTimer& gt)
+void Renderer::Render(const GameTimer& gt)
 {
     const DirectX::XMVECTORF32 mainRtvClearColour = DirectXColorFromImVec4(m_RenderSettings.m_MainViewportClearColour.GetValue());
 
@@ -269,8 +268,6 @@ void Renderer::Draw(const GameTimer& gt)
 
     ID3D12DescriptorHeap* descriptorHeaps[] = { m_SrvDescriptorHeap.Get() };
     m_CommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-
-    m_UIManager->BeginRender();
 
     m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
 
@@ -312,12 +309,11 @@ void Renderer::Draw(const GameTimer& gt)
     matBuffer = m_CurrFrameResource->MaterialBuffer->Resource();
     m_CommandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
 
-
     m_CommandList->RSSetViewports(1, &m_ScreenViewport);
     m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
 
     // Specify the buffers we are going to render to.
-    if (!m_RenderToRTV)
+    if (!m_UIManager->DockspaceLayoutEnabled())
     {
         m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
             D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
@@ -351,20 +347,19 @@ void Renderer::Draw(const GameTimer& gt)
     m_CommandList->SetGraphicsRootDescriptorTable(3, skyTexDescriptor);
 
 
-    //m_CommandList->SetPipelineState(m_PSOs["sky"].Get());
-    //DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Sky]);
+    m_CommandList->SetPipelineState(m_PSOs["sky"].Get());
+    DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Sky]);
 
     m_CommandList->SetPipelineState(m_PSOs["opaque"].Get());
-    DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
+    DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
 
     //m_CommandList->SetPipelineState(m_PSOs["debug"].Get());
     //DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Debug]);
 
     // Indicate a state transition on the resource usage.
-    if (m_RenderToRTV)
+    if (m_UIManager->DockspaceLayoutEnabled())
     {
-        m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(),
-            D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+        m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
         m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), mainRtvClearColour, 0, nullptr);
         m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
     }
@@ -375,8 +370,7 @@ void Renderer::Draw(const GameTimer& gt)
     m_UIManager->SubmitViewportTexture(m_UIManager->GetDefaultViewName(), m_MainGpuSrv, m_ClientWidth, m_ClientHeight);
 
     // Draw Imui
-    m_UIManager->Render();
-    m_UIManager->EndRender(m_CommandList.Get(), CurrentBackBuffer());
+    m_UIManager->Render(m_CommandList.Get(), CurrentBackBuffer(), m_RenderSettings);
 
     // Done recording commands.
     ThrowIfFailed(m_CommandList->Close());
@@ -451,11 +445,6 @@ void Renderer::OnKeyboardInput(const GameTimer& gt)
 		m_Camera.Strafe(10.0f*dt);
 
 	m_Camera.UpdateViewMatrix();
-}
- 
-void Renderer::AnimateMaterials(const GameTimer& gt)
-{
-	
 }
 
 void Renderer::UpdateObjectCBs(const GameTimer& gt)
@@ -1215,7 +1204,6 @@ void Renderer::BuildPSOs()
 {
     D3D12_GRAPHICS_PIPELINE_STATE_DESC basePsoDesc;
 
-	
     ZeroMemory(&basePsoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
     basePsoDesc.InputLayout = { m_InputLayout.data(), (UINT)m_InputLayout.size() };
     basePsoDesc.pRootSignature = m_RootSignature.Get();
@@ -1379,12 +1367,11 @@ void Renderer::BuildPSOs()
 
 }
 
-void Renderer::BuildFrameResources()
+void Renderer::BuildFrameResources() 
 {
     for(int i = 0; i < gNumFrameResources; ++i)
     {
-        m_FrameResources.push_back(std::make_unique<FrameResource>(m_d3dDevice.Get(),
-            2, (UINT)m_AllRitems.size(), (UINT)m_Materials.size()));
+        m_FrameResources.push_back(std::make_unique<FrameResource>(m_d3dDevice.Get(),2, (UINT)m_AllRitems.size(), (UINT)m_Materials.size()));
     }
 }
 
@@ -1413,9 +1400,9 @@ void Renderer::BuildMaterials()
     mirror0->MatCBIndex = 3;
     mirror0->DiffuseSrvHeapIndex = 4;
     mirror0->NormalSrvHeapIndex = 5;
-    mirror0->DiffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+    mirror0->DiffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.8f, 1.0f);
     mirror0->FresnelR0 = XMFLOAT3(0.98f, 0.97f, 0.95f);
-    mirror0->Roughness = 0.1f;
+    mirror0->Roughness = 1.0f;
 
     auto skullMat = std::make_unique<Material>();
     skullMat->Name = "skullMat";
@@ -1444,7 +1431,7 @@ void Renderer::BuildMaterials()
 
 void Renderer::BuildRenderItems()
 {
-	auto skyRitem = std::make_unique<RenderItem>();
+	auto skyRitem = std::make_unique<RenderModel>();
 	XMStoreFloat4x4(&skyRitem->m_World, XMMatrixScaling(5000.0f, 5000.0f, 5000.0f));
 	skyRitem->m_TexTransform = MathHelper::Identity4x4();
 	skyRitem->m_ObjCBIndex = 0;
@@ -1458,7 +1445,7 @@ void Renderer::BuildRenderItems()
 	m_RitemLayer[(int)RenderLayer::Sky].push_back(skyRitem.get());
 	m_AllRitems.push_back(std::move(skyRitem));
     
-    auto quadRitem = std::make_unique<RenderItem>();
+    auto quadRitem = std::make_unique<RenderModel>();
     quadRitem->m_World = MathHelper::Identity4x4();
     quadRitem->m_TexTransform = MathHelper::Identity4x4();
     quadRitem->m_ObjCBIndex = 1;
@@ -1472,7 +1459,7 @@ void Renderer::BuildRenderItems()
     m_RitemLayer[(int)RenderLayer::Debug].push_back(quadRitem.get());
     m_AllRitems.push_back(std::move(quadRitem));
     
-	auto boxRitem = std::make_unique<RenderItem>();
+	auto boxRitem = std::make_unique<RenderModel>();
 	XMStoreFloat4x4(&boxRitem->m_World, XMMatrixScaling(2.0f, 1.0f, 2.0f)*XMMatrixTranslation(0.0f, 0.5f, 0.0f));
 	XMStoreFloat4x4(&boxRitem->m_TexTransform, XMMatrixScaling(1.0f, 0.5f, 1.0f));
 	boxRitem->m_ObjCBIndex = 2;
@@ -1486,7 +1473,7 @@ void Renderer::BuildRenderItems()
 	m_RitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
 	m_AllRitems.push_back(std::move(boxRitem));
 
-    auto skullRitem = std::make_unique<RenderItem>();
+    auto skullRitem = std::make_unique<RenderModel>();
     XMStoreFloat4x4(&skullRitem->m_World, XMMatrixScaling(0.4f, 0.4f, 0.4f)*XMMatrixTranslation(0.0f, 1.0f, 0.0f));
     skullRitem->m_TexTransform = MathHelper::Identity4x4();
     skullRitem->m_ObjCBIndex = 3;
@@ -1500,7 +1487,7 @@ void Renderer::BuildRenderItems()
 	m_RitemLayer[(int)RenderLayer::Opaque].push_back(skullRitem.get());
 	m_AllRitems.push_back(std::move(skullRitem));
 
-    auto gridRitem = std::make_unique<RenderItem>();
+    auto gridRitem = std::make_unique<RenderModel>();
     gridRitem->m_World = MathHelper::Identity4x4();
 	XMStoreFloat4x4(&gridRitem->m_TexTransform, XMMatrixScaling(8.0f, 8.0f, 1.0f));
 	gridRitem->m_ObjCBIndex = 4;
@@ -1515,8 +1502,8 @@ void Renderer::BuildRenderItems()
 	m_AllRitems.push_back(std::move(gridRitem));
 
 	XMMATRIX brickTexTransform = XMMatrixScaling(1.5f, 2.0f, 1.0f);
-	auto leftCylRitem = std::make_unique<RenderItem>();
-	auto leftSphereRitem = std::make_unique<RenderItem>();
+	auto leftCylRitem = std::make_unique<RenderModel>();
+	auto leftSphereRitem = std::make_unique<RenderModel>();
 
 	XMMATRIX leftCylWorld = XMMatrixTranslation(-5.0f, 1.5f, -10.0f + 5.0f);
 	XMMATRIX rightCylWorld = XMMatrixTranslation(+5.0f, 1.5f, -10.0f + 5.0f);
@@ -1551,7 +1538,7 @@ void Renderer::BuildRenderItems()
 	m_AllRitems.push_back(std::move(leftSphereRitem));
 }
 
-void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
+void Renderer::DrawRenderModels(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderModel*>& ritems)
 {
     UINT objCBByteSize = GraphicsUtils::CalcConstantBufferByteSize(sizeof(ObjectConstants));
  
@@ -1598,7 +1585,7 @@ void Renderer::DrawSceneToShadowMap()
 
     m_CommandList->SetPipelineState(m_PSOs["shadow_opaque"].Get());
 
-    DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
+    DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
 
     // Change back to GENERIC_READ so we can read the texture in a shader.
     m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_ShadowMap->Resource(),
@@ -1631,7 +1618,7 @@ void Renderer::DrawNormalsAndDepth()
 
     m_CommandList->SetPipelineState(m_PSOs["drawNormals"].Get());
 
-    DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
+    DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
 
     // Change back to GENERIC_READ so we can read the texture in a shader.
     m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(normalMap,

@@ -18,10 +18,10 @@ using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 using namespace DirectX::PackedVector;
 
-struct RenderItem
+struct RenderModel
 {
-    RenderItem() = default;
-    RenderItem(const RenderItem& rhs) = delete;
+    RenderModel() = default;
+    RenderModel(const RenderModel& rhs) = delete;
 
     // World matrix of the shape that describes the object's local space
     // relative to the world space, which defines the position, orientation,
@@ -59,7 +59,7 @@ enum class RenderLayer : int
     Count
 };
 
-class Renderer : public D3DApp, IRenderSettings
+class Renderer : public D3DApp
 {
 public:
     friend class UIManager;
@@ -71,22 +71,19 @@ public:
 
     virtual bool Initialize()override;
 
-    // render settings
-    virtual void SetRenderToMainRTV(bool renderToMainRTV) override { m_RenderToRTV = renderToMainRTV; }
-    virtual RenderSettings& GetRenderSettings() override { return m_RenderSettings; }
+    // render setting
 
 private:
     virtual void CreateRtvAndDsvDescriptorHeaps()override;
     virtual void OnResize()override;
     virtual void Update(const GameTimer& gt)override;
-    virtual void Draw(const GameTimer& gt)override;
+    virtual void Render(const GameTimer& gt)override;
 
     virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
     virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
     virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
 
     void OnKeyboardInput(const GameTimer& gt);
-    void AnimateMaterials(const GameTimer& gt);
     void UpdateObjectCBs(const GameTimer& gt);
     void UpdateMaterialBuffer(const GameTimer& gt);
     void UpdateShadowTransform(const GameTimer& gt);
@@ -106,7 +103,7 @@ private:
     void BuildMaterials();
     void BuildRenderItems();
     void BuildMainRTV();
-    void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
+    void DrawRenderModels(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderModel*>& ritems);
     void DrawSceneToShadowMap();
     void DrawNormalsAndDepth();
 
@@ -138,7 +135,6 @@ private:
 
     u32 m_DescriptorCount;
 
-    bool m_RenderToRTV;
     int m_MainRTVIndex;
     int m_MainSRVIndex;
 
@@ -161,10 +157,10 @@ private:
     std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayout;
 
     // List of all the render items.
-    std::vector<std::unique_ptr<RenderItem>> m_AllRitems;
+    std::vector<std::unique_ptr<RenderModel>> m_AllRitems;
 
     // Render items divided by PSO.
-    std::vector<RenderItem*> m_RitemLayer[(int)RenderLayer::Count];
+    std::vector<RenderModel*> m_RitemLayer[(int)RenderLayer::Count];
 
     UINT m_SkyTexHeapIndex = 0;
     UINT m_ShadowMapHeapIndex = 0;

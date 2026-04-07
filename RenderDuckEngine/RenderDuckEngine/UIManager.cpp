@@ -1,19 +1,27 @@
 #include "UIManager.h"
-
 #include "Renderer.h"
 
-#include <functional>
 #include <queue>
 #include <string.h>
 
 #include <filesystem>
 
-typedef std::function<void()> VoidFunc;
-typedef std::pair<VoidFunc, VoidFunc> VoidFuncPair;
-
 UIManager::UIManager()
     : m_NextViewportHandle(-1)
 {
+    m_ImguiPropertyFuncs["bool"] = [&](IProperty* property)        
+        {
+            Property<bool>* propertMap = static_cast<Property<bool>*>(property);
+            bool& value = propertMap->GetValue();
+            ImGui::Checkbox(propertMap->GetLabelessName().c_str(), &value);
+        };
+
+    m_ImguiPropertyFuncs["ImVec4"] = [&](IProperty* property)       
+        {
+            Property<ImVec4>* propertMap = static_cast<Property<ImVec4>*>(property);
+            ImVec4& value = propertMap->GetValue();
+            ImGui::ColorEdit4(propertMap->GetLabelessName().c_str(), (float*)&value, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_None);
+        };
 }
 
 UIManager::~UIManager()
@@ -99,7 +107,7 @@ void UIManager::InitStyle()
     io.Fonts->Build();
 }
 
-void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount, IRenderSettings* renderer)
+void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount)
 {
     assert(device);
     assert(commandQueue);
@@ -133,19 +141,31 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
     //{
     //    ImGui::LoadIniSettingsFromDisk("DefaultPanelLayout.ini");
     //}
-
-    m_Renderer = renderer;
 }
 
-void UIManager::Render()
+void UIManager::Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer, RenderSettings& renderSettings)
 {
-    if (m_UISettings.m_DockSpace.GetValue()) ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+    ImGui_ImplDX12_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+    ImGui::PushFont(m_DefaultFont);
 
-    if (m_ActiveWindows.m_ShowDemoWindow) ImGui::ShowDemoWindow(&m_ActiveWindows.m_ShowDemoWindow);    
-    
-    MainMenuBar();       
-    SettingsWindow();
-    DrawViewports();
+    DrawImGui(renderSettings);
+
+    ImGui::PopFont();
+    ImGui::Render();
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+    barrier.Transition.pResource = backBuffer;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+    cmdList->ResourceBarrier(1, &barrier);
+    CleanUp();
 }
  
 void UIManager::DrawViewports()
@@ -261,31 +281,26 @@ std::string UIManager::GetDefaultViewName()
     return "Scene";
 }
 
-void UIManager::BeginRender()
+bool UIManager::DockspaceLayoutEnabled()
 {
-    ImGui_ImplDX12_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
-    ImGui::PushFont(m_DefaultFont);
+    return m_UISettings.m_DockSpace.GetValue();
 }
 
-void UIManager::EndRender(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer)
+void UIManager::DrawImGui(RenderSettings& renderSettings)
 {
-    ImGui::PopFont();
-    ImGui::Render();
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    barrier.Transition.pResource = backBuffer;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-    cmdList->ResourceBarrier(1, &barrier);
+    if (m_UISettings.m_DockSpace.GetValue())
+    {
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+    }
 
-    CleanUp();
+    if (m_ActiveWindows.m_ShowDemoWindow)
+    {
+        ImGui::ShowDemoWindow(&m_ActiveWindows.m_ShowDemoWindow);
+    }
+
+    MainMenuBar();
+    SettingsWindow(renderSettings);
+    DrawViewports();
 }
 
 void UIManager::CleanUp()
@@ -337,11 +352,6 @@ void UIManager::MainMenuBar()
         if (ImGui::BeginMenu("Window"))
         {
             if (ImGui::MenuItem("Add Viewport")) CreateViewport();
-            if (ImGui::MenuItem("Dockspace"))
-            {
-                m_UISettings.m_DockSpace.m_Value = !m_UISettings.m_DockSpace.m_Value;
-                m_Renderer->SetRenderToMainRTV(m_UISettings.m_DockSpace.m_Value);
-            }
             ImGui::Separator();
             if (ImGui::MenuItem("Show Demo")) m_ActiveWindows.m_ShowDemoWindow = !m_ActiveWindows.m_ShowDemoWindow;
             ImGui::EndMenu();
@@ -350,14 +360,14 @@ void UIManager::MainMenuBar()
     ImGui::EndMainMenuBar();
 }
 
-void UIManager::SettingsWindow()
+void UIManager::SettingsWindow(RenderSettings& renderSettings)
 {
     if (m_ActiveWindows.m_SettingsWindow)
     {
         ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Settings", &m_ActiveWindows.m_SettingsWindow, ImGuiWindowFlags_MenuBar))
         {
-            std::unordered_map<std::string, std::function<void(UIManager&)>> settingsPageMap =
+            std::unordered_map<std::string, std::function<void(UIManager&, RenderSettings&)>> settingsPageMap =
             {
                 { "Scene", &UIManager::SceneSettingsPage }
             };
@@ -383,7 +393,7 @@ void UIManager::SettingsWindow()
             // call settings page function
             ImGui::BeginGroup();
             ImGui::BeginChild("item view", ImVec2(0, -ImGui::GetFrameHeightWithSpacing())); // Leave room for 1 line below us
-            settingsPageMap[selected](*this);
+            settingsPageMap[selected](*this, renderSettings);
             ImGui::EndChild();
             ImGui::EndGroup();
         }
@@ -391,50 +401,36 @@ void UIManager::SettingsWindow()
     }
 }
 
-void UIManager::SceneSettingsPage()
+void UIManager::DrawPropertyConfig(PropertyConfig& propertyConfig)
 {
-    RenderSettings& renderSettings = m_Renderer->GetRenderSettings();
-    std::vector<VoidFuncPair> settingsDisplayFunctions;
-
-    VoidFuncPair mainRtvColour =
-    {
-        [&]() { ImGui::Text(renderSettings.m_MainViewportClearColour.GetName().c_str()); },
-        [&]() { ImGui::ColorEdit4(renderSettings.m_MainViewportClearColour.GetLabelessName().c_str(), (float*)&renderSettings .m_MainViewportClearColour.m_Value, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_None); }
-    };
-    settingsDisplayFunctions.push_back(mainRtvColour);
-
-    VoidFuncPair dockSpace =
-    {
-        [&]() { ImGui::Text(m_UISettings.m_DockSpace.GetName().c_str()); },
-        [&]() { if (ImGui::Checkbox(m_UISettings.m_DockSpace.GetLabelessName().c_str(), &m_UISettings.m_DockSpace.m_Value)) m_Renderer->SetRenderToMainRTV(m_UISettings.m_DockSpace.m_Value); }
-    };
-    settingsDisplayFunctions.push_back(dockSpace);
-    
-
-    // left
+    std::vector<IProperty*>& properties = propertyConfig.GetProperties();
     ImGui::BeginGroup();
-    for (auto& it : settingsDisplayFunctions)
+    for (auto it : properties)
     {
-        it.first();
+        ImGui::Text(it->GetName().c_str());
     }
     ImGui::EndGroup();
-
     ImGui::SameLine();
-
-    // right
     ImGui::BeginGroup();
-    for (auto& it : settingsDisplayFunctions)
+    for (auto it : properties)
     {
-        it.second();
+        std::string propertyType = it->GetTypeName();
+        if (m_ImguiPropertyFuncs.find(propertyType) != m_ImguiPropertyFuncs.end())
+        {
+            m_ImguiPropertyFuncs[propertyType](it);
+        }
+        else
+        {
+            ASSERTFAILMSG("ImguiPropertyFunc not added for type.");
+        }
     }
     ImGui::EndGroup();
-
-    
 }
 
-void UIManager::SaveSettings()
+void UIManager::SceneSettingsPage(RenderSettings& renderSettings)
 {
-
+    DrawPropertyConfig(renderSettings);
+    DrawPropertyConfig(m_UISettings);
 }
 
 ViewportTextureHandle UIManager::GetViewportTextureHandle(std::string debugName)

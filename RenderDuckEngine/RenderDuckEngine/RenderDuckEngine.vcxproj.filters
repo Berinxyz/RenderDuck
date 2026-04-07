@@ -9,10 +9,6 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
     <Filter Include="Inc">
       <UniqueIdentifier>{c22212ff-4979-4470-86be-04b835253c88}</UniqueIdentifier>
     </Filter>
@@ -42,6 +38,9 @@
     </Filter>
     <Filter Include="Source Files\ECS\Components">
       <UniqueIdentifier>{f660fbb8-ae0c-4a63-bb90-9a7330978e1a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Shader Includes">
+      <UniqueIdentifier>{031374dc-3e5f-471c-a22d-cbd9e18936b3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -283,14 +282,32 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="Shaders\Common.hlsl" />
-    <CustomBuild Include="Shaders\Default.hlsl" />
-    <CustomBuild Include="Shaders\DrawNormals.hlsl" />
-    <CustomBuild Include="Shaders\LightingUtil.hlsl" />
-    <CustomBuild Include="Shaders\ShadowDebug.hlsl" />
-    <CustomBuild Include="Shaders\Shadows.hlsl" />
-    <CustomBuild Include="Shaders\Sky.hlsl" />
-    <CustomBuild Include="Shaders\Ssao.hlsl" />
-    <CustomBuild Include="Shaders\SsaoBlur.hlsl" />
+    <CustomBuild Include="Shaders\SsaoBlur.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\Default.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\DrawNormals.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\ShadowDebug.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\Shadows.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\Sky.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\Ssao.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\Common.hlsl">
+      <Filter>Shaders\Shader Includes</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\LightingUtil.hlsl">
+      <Filter>Shaders\Shader Includes</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>

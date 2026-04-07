@@ -117,15 +117,15 @@ int D3DApp::Run()
         {	
 			m_Timer.Tick();
 
-			if( !m_AppPaused )
+			if( !m_AppPaused  )
 			{
 				CalculateFrameStats();
 				Update(m_Timer);	
-                Draw(m_Timer);
+                Render(m_Timer);
 			}
 			else
 			{
-				Sleep(100);
+				Sleep(10);
 			}
         }
     }

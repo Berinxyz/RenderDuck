@@ -10,9 +10,6 @@
 //
 
 class PropertyConfig;
-
-class PropertyManager;
-typedef std::shared_ptr<PropertyManager> SettingManagerRef;
 class PropertyManager
 {
 public:
@@ -77,6 +74,7 @@ public:
 	void LoadProperties();
 	void SaveProperties();
 
+	std::vector<IProperty*>& GetProperties() { return m_Properties; }
 private:
 
 	u32 m_PropertyCount;
@@ -98,14 +96,11 @@ struct IProperty
 	virtual void SetValueFromString(std::string& str) = 0;
 };
 
-class UIManager;
 template<typename T>
-class PropertyMap : IProperty
+class Property : public IProperty
 {
 public:
-	friend UIManager;
-
-	PropertyMap(PropertyConfig* parentConfig, std::string typeName, std::string name, T value)
+	Property(PropertyConfig* parentConfig, std::string typeName, std::string name, T value)
 		: m_TypeName(typeName), m_Value(value), m_Name(name)
 	{	
 		// register to the config when the setting map is created
@@ -127,7 +122,7 @@ public:
 		return "###" + m_Name; 
 	}
 
-	const T& GetValue() const 
+	T& GetValue() 
 	{ 
 		return m_Value; 
 	}
@@ -152,10 +147,9 @@ public:
 		serialiser.SerialiseValueByName(m_TypeName, valueStr, (void*)&m_Value);
 	}
 
-
 private:
 
-	PropertyMap() = delete;
+	Property() = delete;
 
 	T m_Value;
 	std::string m_Name;
@@ -169,14 +163,13 @@ private:
 #define PROPERTY_STR(s) #s
 
 #define PROPERTY_CONFIG_BEGIN(a) \
-	class a : PropertyConfig {  \
+	class a : public PropertyConfig {  \
 		public: \
 			a() : PropertyConfig(PROPERTY_STR(a)) {}	
 
 #define PROPERTY_CONFIG_END };
 
-#define PROPERTY(a, b, c)	PropertyMap<a> m_##b = PropertyMap<a>(this, PROPERTY_STR(a), PROPERTY_STR(b), c);
-
+#define PROPERTY(a, b, c)	Property<a> m_##b = Property<a>(this, PROPERTY_STR(a), PROPERTY_STR(b), c);
 
 PROPERTY_CONFIG_BEGIN(TestSettings)
 	PROPERTY(s8, TestS8, -8)
@@ -194,7 +187,4 @@ PROPERTY_CONFIG_BEGIN(TestSettings)
 	PROPERTY(float4, TestFloat4, float4(1.0f, 2.0f, 3.0f, 4.0f))
 	PROPERTY(bool, TestBool, true)
 	PROPERTY(ImVec4, TestColour, ImVec4(30.f / 255.f, 30.f / 255.f, 30.f / 255.f, 1.0f))
-	// unsupported types/
-	//PROPERTY(std::string, TestString, std::string("Hello, settings!"))
-	//SETTING(DirectX::XMVECTOR,  TestVector, DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 1.0f))
 PROPERTY_CONFIG_END

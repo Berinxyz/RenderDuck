@@ -9,6 +9,8 @@
 #include "include/imgui/backends/imgui_impl_win32.h"
 #include "include/imgui/backends/imgui_impl_dx12.h"
 
+#include <functional>
+
 typedef u32 ViewportHandle;
 typedef u64 ViewportTextureHandle;
 
@@ -50,20 +52,19 @@ public:
 
 	void InitStyle();
 
-	void InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount, IRenderSettings* renderer);
+	void InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount);
 
-	void BeginRender();
-	void Render();
-	void EndRender(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer);
+	void Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer, RenderSettings& renderSettings);
 
 	void SubmitViewportTexture(std::string textureName, GPUTextureHandle textureHandle, u32 textureWidth, u32 textureHeight);
 	void CreateViewport();
 
 	std::string GetDefaultViewName();
+	bool DockspaceLayoutEnabled();
 
 private:
 
-	IRenderSettings* m_Renderer;
+	void DrawImGui(RenderSettings& renderSettings);
 
 	UISettings m_UISettings;
 
@@ -72,10 +73,13 @@ private:
 	void DrawViewports();
 	void DestroyClosedViewports();
 	void MainMenuBar();
-	void SettingsWindow();
+	void SettingsWindow(RenderSettings& renderSettings);
+
+	void DrawProperty(IProperty* property);
+	void DrawPropertyConfig(PropertyConfig& propertyConfig);
 
 	// Settings Categories
-	void SceneSettingsPage();
+	void SceneSettingsPage(RenderSettings& renderSettings);
 
 	// XML
 	void SaveSettings();
@@ -87,7 +91,7 @@ private:
 	ViewportHandle AllocateViewportHandle();
 
 	ActiveWindows m_ActiveWindows;
-
+	std::unordered_map<std::string, std::function<void(IProperty*)>> m_ImguiPropertyFuncs;
 	std::unordered_map<ViewportHandle, Viewport> m_Viewports;
 	std::unordered_map<ViewportTextureHandle, ViewportTexture> m_ViewportDisplayTextureHandles;
 	ViewportHandle m_NextViewportHandle;
