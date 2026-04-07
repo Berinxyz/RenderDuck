@@ -1,4 +1,5 @@
 <RenderSettings>
-	<property type="ImVec4" name="MainViewportClearColour" value="0.735294 0.212659 0.212659 1"/>
+	<property type="ImVec4" name="MainViewportClearColour" value="0.344627 0.424288 0.495098 1"/>
+	<property type="bool" name="EnableSkyBox" value="true"/>
 </RenderSettings>
 

@@ -274,12 +274,15 @@
     <ClInclude Include="ECS\EntityAdmin.h">
       <Filter>Header Files\ECS</Filter>
     </ClInclude>
+    <ClInclude Include="CameraSettings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="imgui.ini">
-      <Filter>Source Files</Filter>
-    </None>
     <None Include="packages.config" />
+    <None Include="imgui.ini">
+      <Filter>Inc\ImGui</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\SsaoBlur.hlsl">

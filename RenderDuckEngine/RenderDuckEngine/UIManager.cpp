@@ -16,6 +16,13 @@ UIManager::UIManager()
             ImGui::Checkbox(propertMap->GetLabelessName().c_str(), &value);
         };
 
+    m_ImguiPropertyFuncs["float"] = [&](IProperty* property)
+        {
+            Property<float>* propertMap = static_cast<Property<float>*>(property);
+            float& value = propertMap->GetValue();
+            ImGui::DragFloat(propertMap->GetLabelessName().c_str(), &value, 0.1f, -10000.0f, 10000.0f);
+        };
+
     m_ImguiPropertyFuncs["ImVec4"] = [&](IProperty* property)       
         {
             Property<ImVec4>* propertMap = static_cast<Property<ImVec4>*>(property);
@@ -143,14 +150,20 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
     //}
 }
 
-void UIManager::Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer, RenderSettings& renderSettings)
+void UIManager::InitSettingsObjects(std::shared_ptr<RenderSettings> renderSettingsRef, std::shared_ptr<CameraSettings> cameraSettingsRef)
+{
+    m_RenderSettingsRef = renderSettingsRef;
+    m_CameraSettingsRef = cameraSettingsRef;
+}
+
+void UIManager::Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer)
 {
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
     ImGui::PushFont(m_DefaultFont);
 
-    DrawImGui(renderSettings);
+    DrawImGui();
 
     ImGui::PopFont();
     ImGui::Render();
@@ -286,7 +299,7 @@ bool UIManager::DockspaceLayoutEnabled()
     return m_UISettings.m_DockSpace.GetValue();
 }
 
-void UIManager::DrawImGui(RenderSettings& renderSettings)
+void UIManager::DrawImGui()
 {
     if (m_UISettings.m_DockSpace.GetValue())
     {
@@ -299,7 +312,7 @@ void UIManager::DrawImGui(RenderSettings& renderSettings)
     }
 
     MainMenuBar();
-    SettingsWindow(renderSettings);
+    SettingsWindow();
     DrawViewports();
 }
 
@@ -360,16 +373,18 @@ void UIManager::MainMenuBar()
     ImGui::EndMainMenuBar();
 }
 
-void UIManager::SettingsWindow(RenderSettings& renderSettings)
+void UIManager::SettingsWindow()
 {
     if (m_ActiveWindows.m_SettingsWindow)
     {
         ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Settings", &m_ActiveWindows.m_SettingsWindow, ImGuiWindowFlags_MenuBar))
         {
-            std::unordered_map<std::string, std::function<void(UIManager&, RenderSettings&)>> settingsPageMap =
+            std::unordered_map<std::string, PropertyConfig*> settingsPageMap =
             {
-                { "Scene", &UIManager::SceneSettingsPage }
+                { "UI", &m_UISettings },
+                { "Camera", m_CameraSettingsRef.get()},
+                { "Render", m_RenderSettingsRef.get()}
             };
 
             // Left
@@ -393,7 +408,7 @@ void UIManager::SettingsWindow(RenderSettings& renderSettings)
             // call settings page function
             ImGui::BeginGroup();
             ImGui::BeginChild("item view", ImVec2(0, -ImGui::GetFrameHeightWithSpacing())); // Leave room for 1 line below us
-            settingsPageMap[selected](*this, renderSettings);
+            DrawPropertyConfig(*settingsPageMap[selected]);
             ImGui::EndChild();
             ImGui::EndGroup();
         }
@@ -425,12 +440,6 @@ void UIManager::DrawPropertyConfig(PropertyConfig& propertyConfig)
         }
     }
     ImGui::EndGroup();
-}
-
-void UIManager::SceneSettingsPage(RenderSettings& renderSettings)
-{
-    DrawPropertyConfig(renderSettings);
-    DrawPropertyConfig(m_UISettings);
 }
 
 ViewportTextureHandle UIManager::GetViewportTextureHandle(std::string debugName)

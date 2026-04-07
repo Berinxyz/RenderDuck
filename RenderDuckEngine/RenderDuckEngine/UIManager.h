@@ -4,6 +4,7 @@
 
 #include "Settings.h"
 #include "RenderSettings.h"
+#include "CameraSettings.h"
 
 #include "include/imgui/imgui.h"
 #include "include/imgui/backends/imgui_impl_win32.h"
@@ -53,8 +54,9 @@ public:
 	void InitStyle();
 
 	void InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount);
+	void InitSettingsObjects(std::shared_ptr<RenderSettings> renderSettingsRef, std::shared_ptr<CameraSettings> cameraSettingsRef);
 
-	void Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer, RenderSettings& renderSettings);
+	void Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer);
 
 	void SubmitViewportTexture(std::string textureName, GPUTextureHandle textureHandle, u32 textureWidth, u32 textureHeight);
 	void CreateViewport();
@@ -64,22 +66,21 @@ public:
 
 private:
 
-	void DrawImGui(RenderSettings& renderSettings);
+	void DrawImGui();
 
 	UISettings m_UISettings;
+	std::shared_ptr<RenderSettings> m_RenderSettingsRef;
+	std::shared_ptr<CameraSettings> m_CameraSettingsRef;
 
 	void CleanUp();
 	// UI Draw functions
 	void DrawViewports();
 	void DestroyClosedViewports();
 	void MainMenuBar();
-	void SettingsWindow(RenderSettings& renderSettings);
+	void SettingsWindow();
 
 	void DrawProperty(IProperty* property);
 	void DrawPropertyConfig(PropertyConfig& propertyConfig);
-
-	// Settings Categories
-	void SceneSettingsPage(RenderSettings& renderSettings);
 
 	// XML
 	void SaveSettings();

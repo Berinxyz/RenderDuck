@@ -11,6 +11,7 @@
 #include "UIManager.h"
 
 #include "RenderSettings.h"
+#include "CameraSettings.h"
 
 #include "DescriptorHeapAllocator.h"
 
@@ -101,7 +102,7 @@ private:
     void BuildPSOs();
     void BuildFrameResources();
     void BuildMaterials();
-    void BuildRenderItems();
+    void BuildRenderModels();
     void BuildMainRTV();
     void DrawRenderModels(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderModel*>& ritems);
     void DrawSceneToShadowMap();
@@ -125,7 +126,8 @@ private:
     static void ImGuiAllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandleStart);
     static void ImGuiFreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle);
 
-    RenderSettings m_RenderSettings;
+    std::shared_ptr<RenderSettings> m_RenderSettings;
+    std::shared_ptr<CameraSettings> m_CameraSettings;
 
     std::shared_ptr<UIManager> m_UIManager;
 

@@ -187,6 +187,7 @@
   <ItemGroup>
     <ClInclude Include="AppAdmin.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="CameraSettings.h" />
     <ClInclude Include="ECS\Components\Component.h" />
     <ClInclude Include="d3dApp.h" />
     <ClInclude Include="d3dUtil.h" />

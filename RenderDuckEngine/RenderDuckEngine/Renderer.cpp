@@ -67,14 +67,18 @@ bool Renderer::Initialize()
     BuildShapeGeometry();
     BuildSkullGeometry();
 	BuildMaterials();
-    BuildRenderItems();
+    BuildRenderModels();
     BuildFrameResources();
     BuildPSOs();
 
     m_Ssao->SetPSOs(m_PSOs["ssao"].Get(), m_PSOs["ssaoBlur"].Get());
 
+    m_RenderSettings = std::make_shared<RenderSettings>();
+    m_CameraSettings = std::make_shared<CameraSettings>();
+
     m_UIManager = std::make_shared<UIManager>();
     m_UIManager->InitialiseForDX12(MainWnd(), m_d3dDevice.Get(), m_CommandQueue.Get(), m_SrvDescriptorHeap.Get(), s_SwapChainBufferCount);
+    m_UIManager->InitSettingsObjects(m_RenderSettings, m_CameraSettings);
     m_UIManager->InitStyle();
 
     // Execute the initialization commands.
@@ -254,7 +258,7 @@ void Renderer::Update(const GameTimer& gt)
 
 void Renderer::Render(const GameTimer& gt)
 {
-    const DirectX::XMVECTORF32 mainRtvClearColour = DirectXColorFromImVec4(m_RenderSettings.m_MainViewportClearColour.GetValue());
+    const DirectX::XMVECTORF32 mainRtvClearColour = DirectXColorFromImVec4(m_RenderSettings->m_MainViewportClearColour.GetValue());
 
     auto cmdListAlloc = m_CurrFrameResource->CmdListAlloc;
 
@@ -293,12 +297,10 @@ void Renderer::Render(const GameTimer& gt)
 	// Normal/depth pass.	
 	DrawNormalsAndDepth();
 	
-
 	// Compute SSAO.	
     m_CommandList->SetGraphicsRootSignature(m_SsaoRootSignature.Get());
     m_Ssao->ComputeSsao(m_CommandList.Get(), m_CurrFrameResource, 0);
 	
-
 	// Main rendering pass.	
     m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
 
@@ -346,9 +348,11 @@ void Renderer::Render(const GameTimer& gt)
     skyTexDescriptor.Offset(m_SkyTexHeapIndex, m_CbvSrvUavDescriptorSize);
     m_CommandList->SetGraphicsRootDescriptorTable(3, skyTexDescriptor);
 
-
-    m_CommandList->SetPipelineState(m_PSOs["sky"].Get());
-    DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Sky]);
+    if (m_RenderSettings->m_EnableSkyBox.GetValue())
+    {
+        m_CommandList->SetPipelineState(m_PSOs["sky"].Get());
+        DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Sky]);
+    }
 
     m_CommandList->SetPipelineState(m_PSOs["opaque"].Get());
     DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
@@ -370,7 +374,7 @@ void Renderer::Render(const GameTimer& gt)
     m_UIManager->SubmitViewportTexture(m_UIManager->GetDefaultViewName(), m_MainGpuSrv, m_ClientWidth, m_ClientHeight);
 
     // Draw Imui
-    m_UIManager->Render(m_CommandList.Get(), CurrentBackBuffer(), m_RenderSettings);
+    m_UIManager->Render(m_CommandList.Get(), CurrentBackBuffer());
 
     // Done recording commands.
     ThrowIfFailed(m_CommandList->Close());
@@ -432,17 +436,25 @@ void Renderer::OnKeyboardInput(const GameTimer& gt)
 {
 	const float dt = gt.DeltaTime();
 
+    float speed = m_CameraSettings->m_CameraSpeed.GetValue();
+
 	if(GetAsyncKeyState('W') & 0x8000)
-		m_Camera.Walk(10.0f*dt);
+		m_Camera.Walk(speed *dt);
 
 	if(GetAsyncKeyState('S') & 0x8000)
-		m_Camera.Walk(-10.0f*dt);
+		m_Camera.Walk(-speed *dt);
 
 	if(GetAsyncKeyState('A') & 0x8000)
-		m_Camera.Strafe(-10.0f*dt);
+		m_Camera.Strafe(-speed *dt);
 
 	if(GetAsyncKeyState('D') & 0x8000)
-		m_Camera.Strafe(10.0f*dt);
+		m_Camera.Strafe(speed *dt);
+
+    if (GetAsyncKeyState('E') & 0x8000)
+        m_Camera.Ascend(speed * dt);
+
+    if (GetAsyncKeyState('Q') & 0x8000)
+        m_Camera.Ascend(-speed * dt);
 
 	m_Camera.UpdateViewMatrix();
 }
@@ -905,12 +917,6 @@ void Renderer::BuildDescriptorHeaps()
 
 void Renderer::BuildShadersAndInputLayout()
 {
-	const D3D_SHADER_MACRO alphaTestDefines[] =
-	{
-		"ALPHA_TEST", "1",
-		NULL, NULL
-	};
-
     m_Shaders["standardVS"] = LoadVertexShader("Default");
     m_Shaders["opaquePS"] = LoadPixelShader("Default");
 
@@ -1429,12 +1435,13 @@ void Renderer::BuildMaterials()
     m_Materials["sky"] = std::move(sky);
 }
 
-void Renderer::BuildRenderItems()
+void Renderer::BuildRenderModels()
 {
+    UINT cbIndex = 0;
 	auto skyRitem = std::make_unique<RenderModel>();
 	XMStoreFloat4x4(&skyRitem->m_World, XMMatrixScaling(5000.0f, 5000.0f, 5000.0f));
 	skyRitem->m_TexTransform = MathHelper::Identity4x4();
-	skyRitem->m_ObjCBIndex = 0;
+	skyRitem->m_ObjCBIndex = cbIndex++;
 	skyRitem->m_Mat = m_Materials["sky"].get();
 	skyRitem->m_Geo = m_Geometries["shapeGeo"].get();
 	skyRitem->m_PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1445,7 +1452,7 @@ void Renderer::BuildRenderItems()
 	m_RitemLayer[(int)RenderLayer::Sky].push_back(skyRitem.get());
 	m_AllRitems.push_back(std::move(skyRitem));
     
-    auto quadRitem = std::make_unique<RenderModel>();
+    /*auto quadRitem = std::make_unique<RenderModel>();
     quadRitem->m_World = MathHelper::Identity4x4();
     quadRitem->m_TexTransform = MathHelper::Identity4x4();
     quadRitem->m_ObjCBIndex = 1;
@@ -1457,12 +1464,12 @@ void Renderer::BuildRenderItems()
     quadRitem->m_BaseVertexLocation = quadRitem->m_Geo->DrawArgs["quad"].BaseVertexLocation;
 
     m_RitemLayer[(int)RenderLayer::Debug].push_back(quadRitem.get());
-    m_AllRitems.push_back(std::move(quadRitem));
+    m_AllRitems.push_back(std::move(quadRitem));*/
     
 	auto boxRitem = std::make_unique<RenderModel>();
-	XMStoreFloat4x4(&boxRitem->m_World, XMMatrixScaling(2.0f, 1.0f, 2.0f)*XMMatrixTranslation(0.0f, 0.5f, 0.0f));
-	XMStoreFloat4x4(&boxRitem->m_TexTransform, XMMatrixScaling(1.0f, 0.5f, 1.0f));
-	boxRitem->m_ObjCBIndex = 2;
+	XMStoreFloat4x4(&boxRitem->m_World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	XMStoreFloat4x4(&boxRitem->m_TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	boxRitem->m_ObjCBIndex = cbIndex++;
 	boxRitem->m_Mat = m_Materials["bricks0"].get();
 	boxRitem->m_Geo = m_Geometries["shapeGeo"].get();
 	boxRitem->m_PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1473,7 +1480,7 @@ void Renderer::BuildRenderItems()
 	m_RitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
 	m_AllRitems.push_back(std::move(boxRitem));
 
-    auto skullRitem = std::make_unique<RenderModel>();
+    /*auto skullRitem = std::make_unique<RenderModel>();
     XMStoreFloat4x4(&skullRitem->m_World, XMMatrixScaling(0.4f, 0.4f, 0.4f)*XMMatrixTranslation(0.0f, 1.0f, 0.0f));
     skullRitem->m_TexTransform = MathHelper::Identity4x4();
     skullRitem->m_ObjCBIndex = 3;
@@ -1482,12 +1489,12 @@ void Renderer::BuildRenderItems()
     skullRitem->m_PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
     skullRitem->m_IndexCount = skullRitem->m_Geo->DrawArgs["skull"].IndexCount;
     skullRitem->m_StartIndexLocation = skullRitem->m_Geo->DrawArgs["skull"].StartIndexLocation;
-    skullRitem->m_BaseVertexLocation = skullRitem->m_Geo->DrawArgs["skull"].BaseVertexLocation;
+    skullRitem->m_BaseVertexLocation = skullRitem->m_Geo->DrawArgs["skull"].BaseVertexLocation;*/
 
-	m_RitemLayer[(int)RenderLayer::Opaque].push_back(skullRitem.get());
-	m_AllRitems.push_back(std::move(skullRitem));
+	/*m_RitemLayer[(int)RenderLayer::Opaque].push_back(skullRitem.get());
+	m_AllRitems.push_back(std::move(skullRitem));*/
 
-    auto gridRitem = std::make_unique<RenderModel>();
+    /*auto gridRitem = std::make_unique<RenderModel>();
     gridRitem->m_World = MathHelper::Identity4x4();
 	XMStoreFloat4x4(&gridRitem->m_TexTransform, XMMatrixScaling(8.0f, 8.0f, 1.0f));
 	gridRitem->m_ObjCBIndex = 4;
@@ -1499,10 +1506,10 @@ void Renderer::BuildRenderItems()
     gridRitem->m_BaseVertexLocation = gridRitem->m_Geo->DrawArgs["grid"].BaseVertexLocation;
 
 	m_RitemLayer[(int)RenderLayer::Opaque].push_back(gridRitem.get());
-	m_AllRitems.push_back(std::move(gridRitem));
+	m_AllRitems.push_back(std::move(gridRitem));*/
 
-	XMMATRIX brickTexTransform = XMMatrixScaling(1.5f, 2.0f, 1.0f);
-	auto leftCylRitem = std::make_unique<RenderModel>();
+	//XMMATRIX brickTexTransform = XMMatrixScaling(1.5f, 2.0f, 1.0f);
+	/*auto leftCylRitem = std::make_unique<RenderModel>();
 	auto leftSphereRitem = std::make_unique<RenderModel>();
 
 	XMMATRIX leftCylWorld = XMMatrixTranslation(-5.0f, 1.5f, -10.0f + 5.0f);
@@ -1535,7 +1542,7 @@ void Renderer::BuildRenderItems()
 	m_RitemLayer[(int)RenderLayer::Opaque].push_back(leftSphereRitem.get());
 
 	m_AllRitems.push_back(std::move(leftCylRitem));
-	m_AllRitems.push_back(std::move(leftSphereRitem));
+	m_AllRitems.push_back(std::move(leftSphereRitem));*/
 }
 
 void Renderer::DrawRenderModels(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderModel*>& ritems)
