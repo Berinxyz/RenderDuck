@@ -33,10 +33,11 @@ public:
     float2              SerialiseValue(std::string& valueStr, float2* value);
     float3              SerialiseValue(std::string& valueStr, float3* value);
     float4              SerialiseValue(std::string& valueStr, float4* value);
+    
+    vec4                SerialiseValue(std::string& valueStr, vec4* value);
 
     bool                SerialiseValue(std::string& valueStr, bool* value);
     std::string         SerialiseValue(std::string& valueStr, std::string* value);
-    vec4                SerialiseValue(std::string& valueStr, vec4* value);
     ImVec4              SerialiseValue(std::string& valueStr, ImVec4* value);
 
     bool SerialiseValueByName(const std::string& typeName, std::string& valueStr, void* valuePtr);

@@ -72,8 +72,6 @@ protected:
     void LogAdapterOutputs(IDXGIAdapter* adapter);
     void LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format);
 
-    bool FormatIsUAVCompatible();
-
     Microsoft::WRL::ComPtr<ID3DBlob> LoadVertexShader(const std::string shaderName) { return LoadShaderInternal(shaderName, "_VS"); }
     Microsoft::WRL::ComPtr<ID3DBlob> LoadPixelShader(const std::string shaderName) { return LoadShaderInternal(shaderName, "_PS"); }
     Microsoft::WRL::ComPtr<ID3DBlob> LoadComputeShader(const std::string shaderName) { return LoadShaderInternal(shaderName, "_CS"); }

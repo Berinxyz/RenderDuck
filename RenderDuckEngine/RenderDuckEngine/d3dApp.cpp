@@ -450,9 +450,10 @@ bool D3DApp::InitDirect3D()
 #if defined(DEBUG) || defined(_DEBUG) 
 	// Enable the D3D12 debug layer.
 {
-	ComPtr<ID3D12Debug> debugController;
+	ComPtr<ID3D12Debug5> debugController;
 	ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)));
 	debugController->EnableDebugLayer();
+	debugController->SetEnableAutoName(1);
 }
 #endif
 
@@ -595,10 +596,7 @@ ID3D12Resource* D3DApp::CurrentBackBuffer()const
 
 D3D12_CPU_DESCRIPTOR_HANDLE D3DApp::CurrentBackBufferView()const
 {
-	return CD3DX12_CPU_DESCRIPTOR_HANDLE(
-		m_RtvHeap->GetCPUDescriptorHandleForHeapStart(),
-		m_CurrBackBuffer,
-		m_RtvDescriptorSize);
+	return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_RtvHeap->GetCPUDescriptorHandleForHeapStart(), m_CurrBackBuffer, m_RtvDescriptorSize);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE D3DApp::DepthStencilView()const

@@ -55,6 +55,7 @@ struct RenderModel
 enum class RenderLayer : int
 {
     Opaque = 0,
+    Textured,
     Debug,
     Sky,
     Count

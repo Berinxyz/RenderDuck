@@ -1,4 +1,5 @@
 <CameraSettings>
-	<property type="float" name="CameraSpeed" value="Unsupported Type"/>
+	<property type="float3" name="CameraPosition" value="-0.34798 1.36934 -4.11639 "/>
+	<property type="float" name="CameraSpeed" value="7.000000"/>
 </CameraSettings>
 

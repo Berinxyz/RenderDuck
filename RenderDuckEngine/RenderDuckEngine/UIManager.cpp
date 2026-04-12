@@ -12,21 +12,21 @@ UIManager::UIManager()
     m_ImguiPropertyFuncs["bool"] = [&](IProperty* property)        
         {
             Property<bool>* propertMap = static_cast<Property<bool>*>(property);
-            bool& value = propertMap->GetValue();
+            bool& value = propertMap->GetValueRef();
             ImGui::Checkbox(propertMap->GetLabelessName().c_str(), &value);
         };
 
     m_ImguiPropertyFuncs["float"] = [&](IProperty* property)
         {
             Property<float>* propertMap = static_cast<Property<float>*>(property);
-            float& value = propertMap->GetValue();
+            float& value = propertMap->GetValueRef();
             ImGui::DragFloat(propertMap->GetLabelessName().c_str(), &value, 0.1f, -10000.0f, 10000.0f);
         };
 
     m_ImguiPropertyFuncs["ImVec4"] = [&](IProperty* property)       
         {
             Property<ImVec4>* propertMap = static_cast<Property<ImVec4>*>(property);
-            ImVec4& value = propertMap->GetValue();
+            ImVec4& value = propertMap->GetValueRef();
             ImGui::ColorEdit4(propertMap->GetLabelessName().c_str(), (float*)&value, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_None);
         };
 }
@@ -296,12 +296,12 @@ std::string UIManager::GetDefaultViewName()
 
 bool UIManager::DockspaceLayoutEnabled()
 {
-    return m_UISettings.m_DockSpace.GetValue();
+    return m_UISettings.m_DockSpace.GetValueRef();
 }
 
 void UIManager::DrawImGui()
 {
-    if (m_UISettings.m_DockSpace.GetValue())
+    if (m_UISettings.m_DockSpace.GetValueRef())
     {
         ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
     }
@@ -330,8 +330,8 @@ void UIManager::MainMenuBar()
         // FILE
         if (ImGui::BeginMenu("File"))
         {
-            ImGui::MenuItem("(demo menu)", NULL, false, false);
-            if (ImGui::MenuItem("New")) {}
+            //ImGui::MenuItem("(demo menu)", NULL, false, false);
+            /*if (ImGui::MenuItem("New")) {}
             if (ImGui::MenuItem("Open", "Ctrl+O")) {}
             if (ImGui::BeginMenu("Open Recent"))
             {
@@ -339,8 +339,8 @@ void UIManager::MainMenuBar()
                 ImGui::MenuItem("fish_hat.inl");
                 ImGui::MenuItem("fish_hat.h");
                 ImGui::EndMenu();
-            }
-            if (ImGui::MenuItem("Save", "Ctrl+S")) 
+            }*/
+            if (ImGui::MenuItem("Save")) 
             {
                 PropertyManager::Instance().WriteXMLs();
             }
@@ -391,7 +391,7 @@ void UIManager::SettingsWindow()
             static std::string selected = settingsPageMap.size() > 0 ? settingsPageMap.begin()->first : "";
             {
                 ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
-                // FIXME: Good candidate to use ImGuiSelectableFlags_SelectOnNav
+
                 for (auto& it : settingsPageMap)
                 {
                     std::string categoryName = it.first;
@@ -419,16 +419,13 @@ void UIManager::SettingsWindow()
 void UIManager::DrawPropertyConfig(PropertyConfig& propertyConfig)
 {
     std::vector<IProperty*>& properties = propertyConfig.GetProperties();
-    ImGui::BeginGroup();
+    
     for (auto it : properties)
     {
         ImGui::Text(it->GetName().c_str());
-    }
-    ImGui::EndGroup();
-    ImGui::SameLine();
-    ImGui::BeginGroup();
-    for (auto it : properties)
-    {
+
+        ImGui::SameLine();
+
         std::string propertyType = it->GetTypeName();
         if (m_ImguiPropertyFuncs.find(propertyType) != m_ImguiPropertyFuncs.end())
         {
@@ -436,10 +433,9 @@ void UIManager::DrawPropertyConfig(PropertyConfig& propertyConfig)
         }
         else
         {
-            ASSERTFAILMSG("ImguiPropertyFunc not added for type.");
+            //ASSERTFAILMSG("ImguiPropertyFunc not added for type.");
         }
     }
-    ImGui::EndGroup();
 }
 
 ViewportTextureHandle UIManager::GetViewportTextureHandle(std::string debugName)

@@ -46,10 +46,14 @@ bool Renderer::Initialize()
         throw std::exception("Shader Model 6.0 is not supported!");
     }
 
+    m_RenderSettings = std::make_shared<RenderSettings>();
+    m_CameraSettings = std::make_shared<CameraSettings>();
+
     // Reset the command list to prep for initialization commands.
     ThrowIfFailed(m_CommandList->Reset(m_DirectCmdListAlloc.Get(), nullptr));
 
-	m_Camera.SetPosition(0.0f, 2.0f, -15.0f);
+    const float3& camPos = m_CameraSettings->m_CameraPosition.GetValueRef();
+	m_Camera.SetPosition(camPos.x, camPos.y, camPos.z);
  
     m_ShadowMap = std::make_unique<ShadowMap>(m_d3dDevice.Get(),
         2048, 2048);
@@ -72,9 +76,6 @@ bool Renderer::Initialize()
     BuildPSOs();
 
     m_Ssao->SetPSOs(m_PSOs["ssao"].Get(), m_PSOs["ssaoBlur"].Get());
-
-    m_RenderSettings = std::make_shared<RenderSettings>();
-    m_CameraSettings = std::make_shared<CameraSettings>();
 
     m_UIManager = std::make_shared<UIManager>();
     m_UIManager->InitialiseForDX12(MainWnd(), m_d3dDevice.Get(), m_CommandQueue.Get(), m_SrvDescriptorHeap.Get(), s_SwapChainBufferCount);
@@ -130,7 +131,7 @@ void Renderer::BuildMainRTV()
 
     D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
     rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-    rtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     rtvDesc.Texture2D.MipSlice = 0;
     rtvDesc.Texture2D.PlaneSlice = 0;
 
@@ -142,12 +143,12 @@ void Renderer::BuildMainRTV()
     texDesc.Height = m_ClientHeight;
     texDesc.DepthOrArraySize = 1;
     texDesc.MipLevels = 1;
-    texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    texDesc.Format = rtvDesc.Format;
     texDesc.SampleDesc.Count = 1;
     texDesc.SampleDesc.Quality = 0;
     texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
     texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-
+    
     float ambientClearColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
     CD3DX12_CLEAR_VALUE optClear = CD3DX12_CLEAR_VALUE(rtvDesc.Format, ambientClearColor);
     ThrowIfFailed(m_d3dDevice->CreateCommittedResource(
@@ -161,7 +162,7 @@ void Renderer::BuildMainRTV()
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    srvDesc.Format = rtvDesc.Format;
     srvDesc.Texture2D.MostDetailedMip = 0;
     srvDesc.Texture2D.MipLevels = 1;
 
@@ -258,7 +259,7 @@ void Renderer::Update(const GameTimer& gt)
 
 void Renderer::Render(const GameTimer& gt)
 {
-    const DirectX::XMVECTORF32 mainRtvClearColour = DirectXColorFromImVec4(m_RenderSettings->m_MainViewportClearColour.GetValue());
+    const DirectX::XMVECTORF32 mainRtvClearColour = DirectXColorFromImVec4(m_RenderSettings->m_MainViewportClearColour.GetValueRef());
 
     auto cmdListAlloc = m_CurrFrameResource->CmdListAlloc;
 
@@ -315,20 +316,18 @@ void Renderer::Render(const GameTimer& gt)
     m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
 
     // Specify the buffers we are going to render to.
+
     if (!m_UIManager->DockspaceLayoutEnabled())
     {
-        m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-            D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+        m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
         m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), mainRtvClearColour, 0, nullptr);
         m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
     }
     else
     {
-        m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(),
-            D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
+        m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET));
         m_CommandList->ClearRenderTargetView(m_MainCpuRtv, mainRtvClearColour, 0, nullptr);
         m_CommandList->OMSetRenderTargets(1, &m_MainCpuRtv, true, &DepthStencilView());
-        
     }
 
 	// Bind all the textures used in this scene.  Observe
@@ -348,14 +347,17 @@ void Renderer::Render(const GameTimer& gt)
     skyTexDescriptor.Offset(m_SkyTexHeapIndex, m_CbvSrvUavDescriptorSize);
     m_CommandList->SetGraphicsRootDescriptorTable(3, skyTexDescriptor);
 
-    if (m_RenderSettings->m_EnableSkyBox.GetValue())
+    if (m_RenderSettings->m_EnableSkyBox.GetValueRef())
     {
         m_CommandList->SetPipelineState(m_PSOs["sky"].Get());
         DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Sky]);
     }
 
     m_CommandList->SetPipelineState(m_PSOs["opaque"].Get());
-    DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
+    //DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
+
+    m_CommandList->SetPipelineState(m_PSOs["textured"].Get());
+    DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Textured]);
 
     //m_CommandList->SetPipelineState(m_PSOs["debug"].Get());
     //DrawRenderItems(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Debug]);
@@ -363,8 +365,7 @@ void Renderer::Render(const GameTimer& gt)
     // Indicate a state transition on the resource usage.
     if (m_UIManager->DockspaceLayoutEnabled())
     {
-        m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-        m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), mainRtvClearColour, 0, nullptr);
+        //m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
         m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
     }
     
@@ -436,7 +437,7 @@ void Renderer::OnKeyboardInput(const GameTimer& gt)
 {
 	const float dt = gt.DeltaTime();
 
-    float speed = m_CameraSettings->m_CameraSpeed.GetValue();
+    float speed = m_CameraSettings->m_CameraSpeed.GetValueRef();
 
 	if(GetAsyncKeyState('W') & 0x8000)
 		m_Camera.Walk(speed *dt);
@@ -457,6 +458,8 @@ void Renderer::OnKeyboardInput(const GameTimer& gt)
         m_Camera.Ascend(-speed * dt);
 
 	m_Camera.UpdateViewMatrix();
+    float3& cameraPosition = m_CameraSettings->m_CameraPosition.GetValueRef();
+    cameraPosition = VecToFloat3(m_Camera.GetPosition());
 }
 
 void Renderer::UpdateObjectCBs(const GameTimer& gt)
@@ -734,7 +737,7 @@ void Renderer::BuildRootSignature()
 
     if(errorBlob != nullptr)
     {
-        ::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+        OutputDebugStringA((char*)errorBlob->GetBufferPointer());
     }
     ThrowIfFailed(hr);
 
@@ -917,6 +920,9 @@ void Renderer::BuildDescriptorHeaps()
 
 void Renderer::BuildShadersAndInputLayout()
 {
+    m_Shaders["texture_vs"] = LoadVertexShader("Textured");
+    m_Shaders["texture_ps"] = LoadPixelShader("Textured");
+
     m_Shaders["standardVS"] = LoadVertexShader("Default");
     m_Shaders["opaquePS"] = LoadPixelShader("Default");
 
@@ -1222,7 +1228,7 @@ void Renderer::BuildPSOs()
     {
         reinterpret_cast<BYTE*>(m_Shaders["opaquePS"]->GetBufferPointer()),
         m_Shaders["opaquePS"]->GetBufferSize()
-    };;
+    };
     basePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     basePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     basePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -1242,6 +1248,19 @@ void Renderer::BuildPSOs()
     opaquePsoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_EQUAL;
     opaquePsoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
     ThrowIfFailed(m_d3dDevice->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&m_PSOs["opaque"])));
+
+    opaquePsoDesc.VS =
+    {
+        reinterpret_cast<BYTE*>(m_Shaders["texture_vs"]->GetBufferPointer()),
+        m_Shaders["texture_vs"]->GetBufferSize()
+    };
+    opaquePsoDesc.PS =
+    {
+        reinterpret_cast<BYTE*>(m_Shaders["texture_ps"]->GetBufferPointer()),
+        m_Shaders["texture_ps"]->GetBufferSize()
+    };
+
+    ThrowIfFailed(m_d3dDevice->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&m_PSOs["textured"])));
 
     //
     // PSO for shadow map pass.
@@ -1477,7 +1496,7 @@ void Renderer::BuildRenderModels()
 	boxRitem->m_StartIndexLocation = boxRitem->m_Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->m_BaseVertexLocation = boxRitem->m_Geo->DrawArgs["box"].BaseVertexLocation;
 
-	m_RitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
+	m_RitemLayer[(int)RenderLayer::Textured].push_back(boxRitem.get());
 	m_AllRitems.push_back(std::move(boxRitem));
 
     /*auto skullRitem = std::make_unique<RenderModel>();
@@ -1594,6 +1613,9 @@ void Renderer::DrawSceneToShadowMap()
 
     DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
 
+
+    DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Textured]);
+
     // Change back to GENERIC_READ so we can read the texture in a shader.
     m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_ShadowMap->Resource(),
         D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ));
@@ -1626,6 +1648,10 @@ void Renderer::DrawNormalsAndDepth()
     m_CommandList->SetPipelineState(m_PSOs["drawNormals"].Get());
 
     DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Opaque]);
+
+    m_CommandList->SetPipelineState(m_PSOs["drawNormals"].Get());
+
+    DrawRenderModels(m_CommandList.Get(), m_RitemLayer[(int)RenderLayer::Textured]);
 
     // Change back to GENERIC_READ so we can read the texture in a shader.
     m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(normalMap,

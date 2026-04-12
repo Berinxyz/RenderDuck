@@ -21,11 +21,11 @@ bool ValueSerialiser::SerialiseValueByName(const std::string& typeName, std::str
     {
         SerialiseValue(valueStr, static_cast<std::string*>(valuePtr));
     }
-    else if (typeName == "f32")
+    else if (typeName == "f32" || typeName == "float")
     {
         SerialiseValue(valueStr, static_cast<f32*>(valuePtr));
     }
-    else if (typeName == "f64")
+    else if (typeName == "f64" || typeName == "double")
     {
         SerialiseValue(valueStr, static_cast<f64*>(valuePtr));
     }
@@ -37,7 +37,7 @@ bool ValueSerialiser::SerialiseValueByName(const std::string& typeName, std::str
     {
         SerialiseValue(valueStr, static_cast<s16*>(valuePtr));
     }
-    else if (typeName == "s32")
+    else if (typeName == "s32" || typeName == "int")
     {
         SerialiseValue(valueStr, static_cast<s32*>(valuePtr));
     }
@@ -61,9 +61,21 @@ bool ValueSerialiser::SerialiseValueByName(const std::string& typeName, std::str
     {
         SerialiseValue(valueStr, static_cast<u64*>(valuePtr));
     }
-    else if (typeName == "XMVECTOR")
+    else if (typeName == "vec2" || typeName == "vec3" || typeName == "vec4")
     {
         SerialiseValue(valueStr, static_cast<DirectX::XMVECTOR*>(valuePtr));
+    }
+    else if (typeName == "float2")
+    {
+        SerialiseValue(valueStr, static_cast<float2*>(valuePtr));
+    }
+    else if (typeName == "float3")
+    {
+        SerialiseValue(valueStr, static_cast<float3*>(valuePtr));
+    }
+    else if (typeName == "float4")
+    {
+        SerialiseValue(valueStr, static_cast<float4*>(valuePtr));
     }
     else if (typeName == "ImVec4")
     {

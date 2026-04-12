@@ -312,5 +312,7 @@
     <CustomBuild Include="Shaders\LightingUtil.hlsl">
       <Filter>Shaders\Shader Includes</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shaders\Textured_PS.hlsl" />
+    <CustomBuild Include="Shaders\Textured_VS.hlsl" />
   </ItemGroup>
 </Project>

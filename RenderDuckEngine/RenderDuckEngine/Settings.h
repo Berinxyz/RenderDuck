@@ -122,7 +122,7 @@ public:
 		return "###" + m_Name; 
 	}
 
-	T& GetValue() 
+	T& GetValueRef() 
 	{ 
 		return m_Value; 
 	}
