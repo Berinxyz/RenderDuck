@@ -94,6 +94,7 @@ struct IProperty
 	virtual std::string GetName() const = 0;
 	virtual std::string GetValueAsString() const = 0;
 	virtual void SetValueFromString(std::string& str) = 0;
+	virtual bool GetIsHidden() const = 0;
 };
 
 template<typename T>
@@ -101,8 +102,15 @@ class Property : public IProperty
 {
 public:
 	Property(PropertyConfig* parentConfig, std::string typeName, std::string name, T value)
-		: m_TypeName(typeName), m_Value(value), m_Name(name)
+		: m_TypeName(typeName), m_Value(value), m_Name(name), m_HiddenInSettings(false)
 	{	
+		// register to the config when the setting map is created
+		parentConfig->RegisterProperty(this);
+	}
+
+	Property(PropertyConfig* parentConfig, std::string typeName, std::string name, T value, bool hidden)
+		: m_TypeName(typeName), m_Value(value), m_Name(name), m_HiddenInSettings(hidden)
+	{
 		// register to the config when the setting map is created
 		parentConfig->RegisterProperty(this);
 	}
@@ -115,6 +123,11 @@ public:
 	virtual std::string GetName() const override 
 	{ 
 		return m_Name; 
+	}
+
+	virtual bool GetIsHidden() const override
+	{
+		return m_HiddenInSettings;
 	}
 
 	const std::string GetLabelessName() 
@@ -150,10 +163,10 @@ public:
 private:
 
 	Property() = delete;
-
 	T m_Value;
 	std::string m_Name;
 	std::string m_TypeName;
+	bool m_HiddenInSettings;
 };
 
 //
@@ -170,6 +183,7 @@ private:
 #define PROPERTY_CONFIG_END };
 
 #define PROPERTY(a, b, c)	Property<a> m_##b = Property<a>(this, PROPERTY_STR(a), PROPERTY_STR(b), c);
+#define PROPERTY_HIDDEN(a, b, c)	Property<a> m_##b = Property<a>(this, PROPERTY_STR(a), PROPERTY_STR(b), c, true);
 
 PROPERTY_CONFIG_BEGIN(TestSettings)
 	PROPERTY(s8, TestS8, -8)

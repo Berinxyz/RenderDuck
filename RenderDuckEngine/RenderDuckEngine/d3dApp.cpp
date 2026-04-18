@@ -11,7 +11,7 @@ using Microsoft::WRL::ComPtr;
 using namespace std;
 using namespace DirectX;
 
-#define DEBUG
+//#define DEBUG
 
 inline void GetAssetsPath(_Out_writes_(pathSize) WCHAR* path, UINT pathSize)
 {
@@ -180,8 +180,10 @@ void D3DApp::OnResize()
 
 	// Release the previous resources we will be recreating.
 	for (int i = 0; i < s_SwapChainBufferCount; ++i)
+	{
 		m_SwapChainBuffer[i].Reset();
-    m_DepthStencilBuffer.Reset();
+	}
+	m_DepthStencilBuffer.Reset();
 	
 	// Resize the swap chain.
     ThrowIfFailed(m_SwapChain->ResizeBuffers(
@@ -198,6 +200,9 @@ void D3DApp::OnResize()
 		ThrowIfFailed(m_SwapChain->GetBuffer(i, IID_PPV_ARGS(&m_SwapChainBuffer[i])));
 		m_d3dDevice->CreateRenderTargetView(m_SwapChainBuffer[i].Get(), nullptr, rtvHeapHandle);
 		rtvHeapHandle.Offset(1, m_RtvDescriptorSize);
+#ifdef DEBUG
+		m_SwapChainBuffer[i]->SetName(L"SwapchainBuffer");
+#endif
 	}
 
     // Create the depth/stencil buffer and view.
@@ -232,6 +237,10 @@ void D3DApp::OnResize()
 		D3D12_RESOURCE_STATE_COMMON,
         &optClear,
         IID_PPV_ARGS(m_DepthStencilBuffer.GetAddressOf())));
+
+#ifdef DEBUG
+	m_DepthStencilBuffer->SetName(L"DepthBuffer");
+#endif
 
     // Create descriptor to mip level 0 of entire resource using the format of the resource.
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;

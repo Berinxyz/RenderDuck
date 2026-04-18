@@ -55,13 +55,8 @@ bool Renderer::Initialize()
     const float3& camPos = m_CameraSettings->m_CameraPosition.GetValueRef();
 	m_Camera.SetPosition(camPos.x, camPos.y, camPos.z);
  
-    m_ShadowMap = std::make_unique<ShadowMap>(m_d3dDevice.Get(),
-        2048, 2048);
-
-    m_Ssao = std::make_unique<Ssao>(
-        m_d3dDevice.Get(),
-        m_CommandList.Get(),
-        m_ClientWidth, m_ClientHeight);
+    m_ShadowMap = std::make_unique<ShadowMap>(m_d3dDevice.Get(), 2048, 2048);
+    m_Ssao = std::make_unique<Ssao>(m_d3dDevice.Get(), m_CommandList.Get(), m_ClientWidth, m_ClientHeight);
 
 	LoadTextures();
     BuildRootSignature();
@@ -149,13 +144,13 @@ void Renderer::BuildMainRTV()
     texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
     texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     
-    float ambientClearColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    CD3DX12_CLEAR_VALUE optClear = CD3DX12_CLEAR_VALUE(rtvDesc.Format, ambientClearColor);
+    const DirectX::XMVECTORF32 mainRtvClearColour = DirectXColorFromImVec4(m_RenderSettings->m_MainViewportClearColour.GetValueRef());
+    CD3DX12_CLEAR_VALUE optClear = CD3DX12_CLEAR_VALUE(rtvDesc.Format, mainRtvClearColour);
     ThrowIfFailed(m_d3dDevice->CreateCommittedResource(
         &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
         D3D12_HEAP_FLAG_NONE,
         &texDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
+        D3D12_RESOURCE_STATE_COMMON,
         &optClear,
         IID_PPV_ARGS(&m_MainRTV)));
 
@@ -169,6 +164,10 @@ void Renderer::BuildMainRTV()
     m_MainCpuSrv = GetCpuSrv(m_MainRTVIndex);
     m_MainGpuSrv = GetGpuSrv(m_MainRTVIndex);
     m_MainCpuRtv = GetRtv(s_SwapChainBufferCount + 3);
+
+#ifdef DEBUG
+    m_MainRTV->SetName(L"MainRTV");
+#endif
 
     m_d3dDevice->CreateRenderTargetView(m_MainRTV.Get(), &rtvDesc, m_MainCpuRtv);
     m_d3dDevice->CreateShaderResourceView(m_MainRTV.Get(), &srvDesc, m_MainCpuSrv);
@@ -299,9 +298,9 @@ void Renderer::Render(const GameTimer& gt)
 	DrawNormalsAndDepth();
 	
 	// Compute SSAO.	
-    m_CommandList->SetGraphicsRootSignature(m_SsaoRootSignature.Get());
+    /*m_CommandList->SetGraphicsRootSignature(m_SsaoRootSignature.Get());
     m_Ssao->ComputeSsao(m_CommandList.Get(), m_CurrFrameResource, 0);
-	
+	*/
 	// Main rendering pass.	
     m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
 
@@ -317,17 +316,18 @@ void Renderer::Render(const GameTimer& gt)
 
     // Specify the buffers we are going to render to.
 
-    if (!m_UIManager->DockspaceLayoutEnabled())
-    {
-        m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-        m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), mainRtvClearColour, 0, nullptr);
-        m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
-    }
-    else
+    m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET));
+    m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), mainRtvClearColour, 0, nullptr);
+
+    if (m_UIManager->DockspaceLayoutEnabled())
     {
         m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET));
         m_CommandList->ClearRenderTargetView(m_MainCpuRtv, mainRtvClearColour, 0, nullptr);
         m_CommandList->OMSetRenderTargets(1, &m_MainCpuRtv, true, &DepthStencilView());
+    }
+    else
+    {
+        m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
     }
 
 	// Bind all the textures used in this scene.  Observe
@@ -365,7 +365,7 @@ void Renderer::Render(const GameTimer& gt)
     // Indicate a state transition on the resource usage.
     if (m_UIManager->DockspaceLayoutEnabled())
     {
-        //m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+        m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_MainRTV.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON));
         m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
     }
     

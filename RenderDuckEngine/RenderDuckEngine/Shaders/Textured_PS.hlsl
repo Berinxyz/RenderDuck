@@ -1,6 +1,3 @@
-//***************************************************************************************
-// Default.hlsl by Frank Luna (C) 2015 All Rights Reserved.
-//***************************************************************************************
 
 // Include common HLSL code.
 #include "Common.hlsl"
@@ -18,7 +15,9 @@ struct VertexOut
 
 float4 PSMain(VertexOut pin) : SV_Target
 {
-    return float4(pin.TexC.xy, 0.0, 1.0);
+    float3 colour = ((pin.NormalW.xyz + 1.0f) / 2.0f);
+    colour.xy =  pin.TexC;
+    return float4(pin.TexC.xy,0.0f, 1.0f);
 }
 
 
