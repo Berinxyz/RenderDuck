@@ -2,7 +2,7 @@
 #include "types.h"
 #include <vector>
 
-#define XML_FILE_PATH "xml/"
+#define XML_FILE_PATH "../xml/"
 #define XML_FILE_EXT ".xml"
 
 #define RAPIDXML_STATIC_POOL_SIZE (64 * 1024) / 2

@@ -420,11 +420,21 @@ void UIManager::DrawPropertyConfig(PropertyConfig& propertyConfig)
 {
     std::vector<IProperty*>& properties = propertyConfig.GetProperties();
     
+    ImGui::Spacing();
+
     for (auto it : properties)
     {
+        if (it->GetIsHidden())
+        {
+            continue;
+        }
+
         ImGui::Text(it->GetName().c_str());
 
-        ImGui::SameLine();
+        if (ImGui::GetWindowWidth() > 100.0f)
+        {
+            ImGui::SameLine();
+        }
 
         std::string propertyType = it->GetTypeName();
         if (m_ImguiPropertyFuncs.find(propertyType) != m_ImguiPropertyFuncs.end())
