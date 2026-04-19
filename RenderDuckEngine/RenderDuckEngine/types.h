@@ -37,7 +37,11 @@ static vec4 Vec3Make(const float3& f) { return XMLoadFloat3(&f); }
 static vec2 Vec2Make(float x, float y) { return { x, y, 0.0f, 0.0f }; }
 static vec4 Vec2Make(const float2& f) { return XMLoadFloat2(&f); }
 
-static float4 VecToFloat4(const vec4 v) { return float4(v.m128_f32[0], v.m128_f32[1], v.m128_f32[2], v.m128_f32[3]); }
-static float3 VecToFloat3(const vec3 v) { return float3(v.m128_f32[0], v.m128_f32[1], v.m128_f32[2]); }
-static float2 VecToFloat2(const vec2 v) { return float2(v.m128_f32[0], v.m128_f32[1]); }
+static vec4 Vec4Normalize(const vec4& v) { return DirectX::XMVector4Normalize(v); }
+static vec3 Vec3Normalize(const vec3& v) { return DirectX::XMVector3Normalize(v); }
+static vec2 Vec2Normalize(const vec2& v) { return DirectX::XMVector2Normalize(v); }
+
+static float4 VecToFloat4(const vec4& v) { return float4(v.m128_f32[0], v.m128_f32[1], v.m128_f32[2], v.m128_f32[3]); }
+static float3 VecToFloat3(const vec3& v) { return float3(v.m128_f32[0], v.m128_f32[1], v.m128_f32[2]); }
+static float2 VecToFloat2(const vec2& v) { return float2(v.m128_f32[0], v.m128_f32[1]); }
 

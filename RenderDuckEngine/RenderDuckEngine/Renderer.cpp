@@ -54,6 +54,9 @@ bool Renderer::Initialize()
 
     const float3& camPos = m_CameraSettings->m_CameraPosition.GetValueRef();
 	m_Camera.SetPosition(camPos.x, camPos.y, camPos.z);
+
+    const float3& camLookAt = m_CameraSettings->m_CameraLookAt.GetValueRef();
+    m_Camera.LookAt(Vec3Make(camPos), Vec3Make(camPos) + Vec3Make(camLookAt), m_Camera.GetUp());
  
     m_ShadowMap = std::make_unique<ShadowMap>(m_d3dDevice.Get(), 2048, 2048);
     m_Ssao = std::make_unique<Ssao>(m_d3dDevice.Get(), m_CommandList.Get(), m_ClientWidth, m_ClientHeight);
@@ -464,6 +467,8 @@ void Renderer::OnKeyboardInput(const GameTimer& gt)
 	m_Camera.UpdateViewMatrix();
     float3& cameraPosition = m_CameraSettings->m_CameraPosition.GetValueRef();
     cameraPosition = VecToFloat3(m_Camera.GetPosition());
+    float3& cameraLookAt = m_CameraSettings->m_CameraLookAt.GetValueRef();
+    cameraLookAt = VecToFloat3(Vec3Normalize(m_Camera.GetLook()));
 }
 
 void Renderer::UpdateObjectCBs(const GameTimer& gt)
@@ -1507,7 +1512,7 @@ void Renderer::BuildRenderModels()
     m_AllRenderModels.push_back(std::move(quadRitem));
     
 	auto boxRitem = std::make_unique<RenderModel>();
-	XMStoreFloat4x4(&boxRitem->m_World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.51f, 0.0f));
+	XMStoreFloat4x4(&boxRitem->m_World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
 	XMStoreFloat4x4(&boxRitem->m_TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 	boxRitem->m_ObjCBIndex = cbIndex++;
 	boxRitem->m_Mat = m_Materials["bricks0"].get();
