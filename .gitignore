@@ -407,4 +407,4 @@ FodyWeavers.xsd
 
 # RenderDuck
 xml/
-*.ini
+RenderDuckEngine/imgui.ini
