@@ -1,29 +1,36 @@
 
-struct VSIn
+// Include common HLSL code.
+#include "Common.hlsl"
+
+struct VertexIn
 {
-	float3 m_Pos    : POSITION;
-    float3 m_Normal : NORMAL;
-	float2 m_UV     : TEXCOORD;
+    float3 PosL : POSITION;
+    float3 NormalL : NORMAL;
+    float2 TexC : TEXCOORD;
+    float3 TangentU : TANGENT;
 };
 
-struct PSIn
+struct VertexOut
 {
-	float4 m_WorldPosition    : SV_POSITION;
-	float3 m_Normal           : TANGENT;
-	float2 m_UV               : TEXCOORD;
+    float4 PosH : SV_POSITION;
+    float4 ShadowPosH : POSITION0;
+    float4 SsaoPosH : POSITION1;
+    float3 PosW : POSITION2;
+    float3 NormalW : NORMAL;
+    float3 TangentW : TANGENT;
+    float2 TexC : TEXCOORD;
 };
 
-// Constant data that varies per frame.
-cbuffer cbPerObject : register(b0)
+VertexOut VSMain(VertexIn vin)
 {
-    float4x4 gWorld;
-};
+    VertexOut vout = (VertexOut) 0.0f;
 
-PSIn VSMain(VSIn vin)
-{
-    PSIn psin = (PSIn)0;
-	psin.m_WorldPosition = mul(float4(vin.m_Pos, 1.0f), gWorld);
-    psin.m_Normal = mul(vin.m_Normal, (float3x3)gWorld);	
-    psin.m_UV = vin.m_UV;
-    return psin;
+    float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
+    vout.PosW = posW.xyz;
+    vout.NormalW = mul(vin.NormalL, (float3x3) gWorld);
+    vout.TangentW = mul(vin.TangentU, (float3x3) gWorld);
+    vout.PosH = mul(posW, gViewProj);
+    vout.TexC = vin.TexC;
+    return vout;
 }
+

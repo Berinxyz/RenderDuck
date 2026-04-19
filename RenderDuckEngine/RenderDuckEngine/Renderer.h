@@ -56,6 +56,7 @@ enum class RenderLayer : int
 {
     Opaque = 0,
     Textured,
+    Grid,
     Debug,
     Sky,
     Count
@@ -160,10 +161,10 @@ private:
     std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayout;
 
     // List of all the render items.
-    std::vector<std::unique_ptr<RenderModel>> m_AllRitems;
+    std::vector<std::unique_ptr<RenderModel>> m_AllRenderModels;
 
     // Render items divided by PSO.
-    std::vector<RenderModel*> m_RitemLayer[(int)RenderLayer::Count];
+    std::vector<RenderModel*> m_RenderModelGroups[(int)RenderLayer::Count];
 
     UINT m_SkyTexHeapIndex = 0;
     UINT m_ShadowMapHeapIndex = 0;
