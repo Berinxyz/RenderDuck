@@ -2,36 +2,32 @@
 
 EntityAdmin::EntityAdmin()
 {
+	m_EntityPool.reserve(c_MaxEntities);
 }
 
-EntityHandle EntityAdmin::CreateEntity()
+const EntityHandle EntityAdmin::CreateEntity()
 {
-	EntityHandle handle = AllocateEntiyHandle();
-
-	if (auto it = m_Entities.find(handle); it == m_Entities.end())
+	// get any deleted handles and see if we can use them
+	if(!m_FreeHandles.empty())
 	{
-		Entity entity(handle, this);
-		m_Entities[handle] = entity;
-	}
-	else
-	{
-		ASSERTFAILMSG("AllocateEntityHandle returned existing entity id");
-	}
-	return EntityHandle();
-}
-
-void EntityAdmin::DestroyEntity(EntityHandle& handle)
-{
-}
-
-EntityHandle EntityAdmin::AllocateEntiyHandle()
-{
-	if (!m_FreeHandles.empty())
-	{
-		EntityHandle handle = m_FreeHandles.front();
+		// pop the next handle
+		EntityIndex newIndex = m_FreeHandles.front();
 		m_FreeHandles.pop();
-		return handle;
+		EntityVersion version = GetEntityVersion(m_EntityPool[newIndex].m_Handle);
+		EntityHandle newHandle = PackEntityHandle(newIndex, version);
+		m_EntityPool[newIndex].m_Handle = newHandle;
+		return m_EntityPool[newIndex].m_Handle;
 	}
 
-	return m_Entities.size();
+	m_EntityPool.push_back(Entity(PackEntityHandle(m_EntityPool.size(), 0)));
+	return m_EntityPool.back().m_Handle;
+}
+
+void EntityAdmin::DestroyEntity(const EntityHandle& handle)
+{
+	EntityIndex index = GetEntityIndex(handle);
+	// invalidate the entity handle
+	m_EntityPool[index].m_Handle = PackEntityHandle(EntityIndex(-1), GetEntityVersion(handle) + 1);
+	m_EntityPool[index].m_ComponentMask.reset();
+	m_FreeHandles.push(index);
 }

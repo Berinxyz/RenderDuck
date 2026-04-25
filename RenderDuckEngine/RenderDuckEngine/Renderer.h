@@ -9,6 +9,7 @@
 #include "ShadowMap.h"
 #include "Ssao.h"
 #include "UIManager.h"
+#include "ECS/EntityAdmin.h"
 
 #include "RenderSettings.h"
 #include "CameraSettings.h"
@@ -132,6 +133,8 @@ private:
     std::shared_ptr<CameraSettings> m_CameraSettings;
 
     std::shared_ptr<UIManager> m_UIManager;
+    std::shared_ptr<EntityAdmin> m_EntityAdmin;
+    void EntityUnitTests();
 
     std::vector<std::unique_ptr<FrameResource>> m_FrameResources;
     FrameResource* m_CurrFrameResource = nullptr;

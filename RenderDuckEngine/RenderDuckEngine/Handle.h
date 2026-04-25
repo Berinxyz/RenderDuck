@@ -27,7 +27,7 @@ public:
     void Invalidate() { m_Value = s_Invalid; }
     bool IsValid() const { return m_Value != s_Invalid; }
 
-    T GetValue() const { return m_Value; }
+    const T GetValue() const { return m_Value; }
 private:
     T m_Value;
 };

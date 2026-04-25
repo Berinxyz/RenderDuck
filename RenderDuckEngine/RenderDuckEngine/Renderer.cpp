@@ -46,6 +46,9 @@ bool Renderer::Initialize()
         throw std::exception("Shader Model 6.0 is not supported!");
     }
 
+    m_EntityAdmin = std::make_shared<EntityAdmin>();
+    EntityUnitTests();
+
     m_RenderSettings = std::make_shared<RenderSettings>();
     m_CameraSettings = std::make_shared<CameraSettings>();
 
@@ -117,6 +120,41 @@ void Renderer::ImGuiAllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* outCpuHandle
 void Renderer::ImGuiFreeDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle)
 {
     s_SrvDescriptorHeapAllocator.Free(cpuHandle, gpuHandle);
+
+}
+
+void Renderer::EntityUnitTests()
+{
+    EntityHandle entity = m_EntityAdmin->CreateEntity();
+    EntityHandle entity2 = m_EntityAdmin->CreateEntity();
+    EntityHandle entity3 = m_EntityAdmin->CreateEntity();
+
+    m_EntityAdmin->AddComponent<TransformComponent>(entity);
+    m_EntityAdmin->AddComponent<MeshComponent>(entity2);
+    m_EntityAdmin->AddComponent<TransformComponent>(entity2);
+    m_EntityAdmin->AddComponent<TransformComponent>(entity3);
+
+    TransformComponent* tc1 = m_EntityAdmin->GetComponent<TransformComponent>(entity);
+    TransformComponent* tc2 = m_EntityAdmin->GetComponent<TransformComponent>(entity2);
+    MeshComponent* mc1 = m_EntityAdmin->GetComponent<MeshComponent>(entity2);
+    TransformComponent* tc3 = m_EntityAdmin->GetComponent<TransformComponent>(entity3);
+
+    m_EntityAdmin->DestroyComponent<TransformComponent>(entity2);
+    TransformComponent* tc4 = m_EntityAdmin->GetComponent<TransformComponent>(entity2);
+
+    m_EntityAdmin->DestroyEntity(entity);
+
+    EntityHandle entityV2 = m_EntityAdmin->CreateEntity();
+
+    EntityView<> ev(m_EntityAdmin);
+
+    auto b = ev.begin();
+    auto e = ev.end();
+
+    for (EntityHandle it : EntityView<MeshComponent>(m_EntityAdmin))
+    {
+        m_EntityAdmin->DestroyEntity(it);
+    }
 
 }
 
@@ -430,7 +468,7 @@ void Renderer::OnMouseMove(WPARAM btnState, int x, int y)
     {
 		// Make each pixel correspond to a quarter of a degree.
 		float dx = XMConvertToRadians(0.25f*static_cast<float>(x - m_LastMousePos.x));
-		float dy = XMConvertToRadians(0.25f*static_cast<float>(y - m_LastMousePos.y));
+        float dy = XMConvertToRadians(0.25f * static_cast<float>(y - m_LastMousePos.y));
 
 		m_Camera.Pitch(dy);
 		m_Camera.RotateY(dx);

@@ -2,6 +2,6 @@
 #include "Settings.h"
 
 PROPERTY_CONFIG_BEGIN(RenderSettings)
-	PROPERTY(ImVec4, MainViewportClearColour, ImVec4(30.f / 255.f, 30.f / 255.f, 30.f / 255.f, 1.f))
+	PROPERTY(ImVec4, MainViewportClearColour, ImVec4(0.318627f, 0.318627f, 0.318627f, 1.f))
 	PROPERTY(bool, EnableSkyBox, true)
 PROPERTY_CONFIG_END
