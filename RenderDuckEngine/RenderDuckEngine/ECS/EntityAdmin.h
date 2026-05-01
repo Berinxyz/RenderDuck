@@ -46,6 +46,10 @@ public:
 	void DestroyComponent(const EntityHandle& handle);
 	template<typename T>
 	bool HasComponent(const EntityHandle& handle);
+	template<typename T>
+	u32 GetComponentCount();
+
+	void ClearScene();
 
 private:
 
@@ -58,6 +62,12 @@ private:
 	std::vector<ComponentPoolRef> m_ComponentPools;
 };
 
+template<typename T>
+inline u32 EntityAdmin::GetComponentCount()
+{
+	u32 componentID = GetComponentMaskID<T>();
+	return m_ComponentPools.size() <= componentID ? 0 : m_ComponentPools[componentID]->Count();
+}
 
 template<typename T>
 inline T* EntityAdmin::AddComponent(const EntityHandle& handle)
@@ -76,6 +86,7 @@ inline T* EntityAdmin::AddComponent(const EntityHandle& handle)
 		m_ComponentPools[componentID] = std::make_shared<ComponentPool>(sizeof(T));
 	}
 
+	m_ComponentPools[componentID]->Increment();
 	GetEntity(handle).m_ComponentMask.set(componentID);
 	T* component = new (GetComponent<T>(handle)) T();
 
@@ -103,6 +114,7 @@ inline void EntityAdmin::DestroyComponent(const EntityHandle& handle)
 	}
 
 	u32 componentID = GetComponentMaskID<T>();
+	m_ComponentPools[componentID]->Decrement();
 	GetEntity(handle).m_ComponentMask.reset(componentID);
 }
 
@@ -139,7 +151,8 @@ public:
 	{
 	public:
 		Iterator(EntityAdminRef entityAdmin, EntityIndex index, ComponentMask mask, bool all)
-			: m_EntityAdmin(entityAdmin), m_EntityIndex(index), m_ComponentMask(mask), m_All(all) {
+			: m_EntityAdmin(entityAdmin), m_EntityIndex(index), m_ComponentMask(mask), m_All(all) 
+		{
 		}
 
 		EntityHandle operator*() const
@@ -171,7 +184,9 @@ public:
 			return *this;
 		}
 	private:
-		bool ValidIndex() { return m_EntityAdmin->IsEntityValid(m_EntityIndex) && (m_All || m_ComponentMask == m_EntityAdmin->GetEntity(m_EntityIndex).m_ComponentMask); }
+		bool ValidIndex() { 
+			return m_EntityAdmin->IsEntityValid(m_EntityIndex) && 
+				(m_All || m_ComponentMask == m_EntityAdmin->GetEntity(m_EntityIndex).m_ComponentMask); }
 
 		EntityIndex m_EntityIndex;
 		EntityAdminRef m_EntityAdmin;
@@ -182,7 +197,8 @@ public:
 	const Iterator begin() const
 	{
 		u32 firstIndex = 0;
-		while (firstIndex < m_EntityAdmin->GetEntityCount() && (m_ComponentMask != m_EntityAdmin->GetEntity(firstIndex).m_ComponentMask || !m_EntityAdmin->IsEntityValid(firstIndex)))
+
+		while (firstIndex < m_EntityAdmin->GetEntityCount() && (m_ComponentMask != (m_ComponentMask & m_EntityAdmin->GetEntity(firstIndex).m_ComponentMask) || !m_EntityAdmin->IsEntityValid(firstIndex)))
 		{
 			++firstIndex;
 		}

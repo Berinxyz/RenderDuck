@@ -47,7 +47,7 @@ bool Renderer::Initialize()
     }
 
     m_EntityAdmin = std::make_shared<EntityAdmin>();
-    EntityUnitTests();
+    //EntityUnitTests();
 
     m_RenderSettings = std::make_shared<RenderSettings>();
     m_CameraSettings = std::make_shared<CameraSettings>();
@@ -80,7 +80,7 @@ bool Renderer::Initialize()
 
     m_UIManager = std::make_shared<UIManager>();
     m_UIManager->InitialiseForDX12(MainWnd(), m_d3dDevice.Get(), m_CommandQueue.Get(), m_SrvDescriptorHeap.Get(), s_SwapChainBufferCount);
-    m_UIManager->InitSettingsObjects(m_RenderSettings, m_CameraSettings);
+    m_UIManager->InitObjects(this, m_EntityAdmin, m_RenderSettings, m_CameraSettings);
     m_UIManager->InitStyle();
 
     // Execute the initialization commands.
@@ -130,13 +130,13 @@ void Renderer::EntityUnitTests()
     EntityHandle entity3 = m_EntityAdmin->CreateEntity();
 
     m_EntityAdmin->AddComponent<TransformComponent>(entity);
-    m_EntityAdmin->AddComponent<MeshComponent>(entity2);
+    m_EntityAdmin->AddComponent<ModelComponent>(entity2);
     m_EntityAdmin->AddComponent<TransformComponent>(entity2);
     m_EntityAdmin->AddComponent<TransformComponent>(entity3);
 
     TransformComponent* tc1 = m_EntityAdmin->GetComponent<TransformComponent>(entity);
     TransformComponent* tc2 = m_EntityAdmin->GetComponent<TransformComponent>(entity2);
-    MeshComponent* mc1 = m_EntityAdmin->GetComponent<MeshComponent>(entity2);
+    ModelComponent* mc1 = m_EntityAdmin->GetComponent<ModelComponent>(entity2);
     TransformComponent* tc3 = m_EntityAdmin->GetComponent<TransformComponent>(entity3);
 
     m_EntityAdmin->DestroyComponent<TransformComponent>(entity2);
@@ -151,10 +151,23 @@ void Renderer::EntityUnitTests()
     auto b = ev.begin();
     auto e = ev.end();
 
-    for (EntityHandle it : EntityView<MeshComponent>(m_EntityAdmin))
+    for (EntityHandle it : EntityView<>(m_EntityAdmin))
     {
         m_EntityAdmin->DestroyEntity(it);
     }
+
+    for (int i = 0; i < 100; ++i)
+    {
+        EntityHandle handle = m_EntityAdmin->CreateEntity();
+        m_EntityAdmin->AddComponent<TransformComponent>(handle);
+
+        if ((i % 2) == 0)
+        {
+            m_EntityAdmin->AddComponent<ModelComponent>(handle);
+        }
+    }
+    
+    //m_EntityAdmin->ClearScene();
 
 }
 
@@ -1522,6 +1535,7 @@ void Renderer::BuildRenderModels()
     UINT cbIndex = 0;
 	auto skyRitem = std::make_unique<RenderModel>();
 	XMStoreFloat4x4(&skyRitem->m_World, XMMatrixScaling(5000.0f, 5000.0f, 5000.0f));
+    skyRitem->m_DebugName = "Sky";
 	skyRitem->m_TexTransform = MathHelper::Identity4x4();
 	skyRitem->m_ObjCBIndex = cbIndex++;
 	skyRitem->m_Mat = m_Materials["sky"].get();
@@ -1530,6 +1544,7 @@ void Renderer::BuildRenderModels()
 	skyRitem->m_IndexCount = skyRitem->m_Geo->DrawArgs["sphere"].IndexCount;
 	skyRitem->m_StartIndexLocation = skyRitem->m_Geo->DrawArgs["sphere"].StartIndexLocation;
 	skyRitem->m_BaseVertexLocation = skyRitem->m_Geo->DrawArgs["sphere"].BaseVertexLocation;
+    skyRitem->m_RenderLayer = RenderLayer::Sky;
 
 	m_RenderModelGroups[(int)RenderLayer::Sky].push_back(skyRitem.get());
 	m_AllRenderModels.push_back(std::move(skyRitem));
@@ -1537,6 +1552,7 @@ void Renderer::BuildRenderModels()
     auto quadRitem = std::make_unique<RenderModel>();
     const float gridSize = 1000.0f;
     XMStoreFloat4x4(&quadRitem->m_World, XMMatrixScaling(gridSize, gridSize, 1.0f) * XMMatrixTranslation(-gridSize/2.0f, gridSize/2.0f, 0.0f) * XMMatrixRotationX(XMConvertToRadians(90.0f)));
+    quadRitem->m_DebugName = "Quad";
     quadRitem->m_TexTransform = MathHelper::Identity4x4();
     quadRitem->m_ObjCBIndex = cbIndex++;
     quadRitem->m_Mat = m_Materials["bricks0"].get();
@@ -1545,6 +1561,7 @@ void Renderer::BuildRenderModels()
     quadRitem->m_IndexCount = quadRitem->m_Geo->DrawArgs["quad"].IndexCount;
     quadRitem->m_StartIndexLocation = quadRitem->m_Geo->DrawArgs["quad"].StartIndexLocation;
     quadRitem->m_BaseVertexLocation = quadRitem->m_Geo->DrawArgs["quad"].BaseVertexLocation;
+    quadRitem->m_RenderLayer = RenderLayer::Grid;
 
     m_RenderModelGroups[(int)RenderLayer::Grid].push_back(quadRitem.get());
     m_AllRenderModels.push_back(std::move(quadRitem));
@@ -1552,6 +1569,7 @@ void Renderer::BuildRenderModels()
 	auto boxRitem = std::make_unique<RenderModel>();
 	XMStoreFloat4x4(&boxRitem->m_World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
 	XMStoreFloat4x4(&boxRitem->m_TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+    boxRitem->m_DebugName = "Box";
 	boxRitem->m_ObjCBIndex = cbIndex++;
 	boxRitem->m_Mat = m_Materials["bricks0"].get();
 	boxRitem->m_Geo = m_Geometries["shapeGeo"].get();
@@ -1559,7 +1577,7 @@ void Renderer::BuildRenderModels()
 	boxRitem->m_IndexCount = boxRitem->m_Geo->DrawArgs["box"].IndexCount;
 	boxRitem->m_StartIndexLocation = boxRitem->m_Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->m_BaseVertexLocation = boxRitem->m_Geo->DrawArgs["box"].BaseVertexLocation;
-
+    boxRitem->m_RenderLayer = RenderLayer::Textured;
 	m_RenderModelGroups[(int)RenderLayer::Textured].push_back(boxRitem.get());
 	m_AllRenderModels.push_back(std::move(boxRitem));
 

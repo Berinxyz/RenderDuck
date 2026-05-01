@@ -31,3 +31,15 @@ void EntityAdmin::DestroyEntity(const EntityHandle& handle)
 	m_EntityPool[index].m_ComponentMask.reset();
 	m_FreeHandles.push(index);
 }
+
+void EntityAdmin::ClearScene()
+{
+	u32 entityChecked = 0;
+	for (EntityHandle entity : EntityView<>(std::make_shared<EntityAdmin>(*this)))
+	{
+		entityChecked++;
+		DestroyEntity(entity);
+	}
+
+	m_EntityPool.clear();
+}

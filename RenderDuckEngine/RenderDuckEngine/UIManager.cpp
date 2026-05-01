@@ -3,11 +3,13 @@
 
 #include <queue>
 #include <string.h>
+#include <set>
 
 #include <filesystem>
 
 UIManager::UIManager()
     : m_NextViewportHandle(-1)
+    , m_SelectedEntity(-1)
 {
     m_ImguiPropertyFuncs["bool"] = [&](IProperty* property)        
         {
@@ -150,8 +152,12 @@ void UIManager::InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12Comma
     //}
 }
 
-void UIManager::InitSettingsObjects(std::shared_ptr<RenderSettings> renderSettingsRef, std::shared_ptr<CameraSettings> cameraSettingsRef)
+void UIManager::InitObjects(Renderer* renderer, std::shared_ptr<EntityAdmin> entityAdmin, std::shared_ptr<RenderSettings> renderSettingsRef, std::shared_ptr<CameraSettings> cameraSettingsRef)
 {
+    m_Renderer = renderer;
+    m_EntityAdmin = entityAdmin;
+
+    m_UISettingsRef = std::make_shared<UISettings>();
     m_RenderSettingsRef = renderSettingsRef;
     m_CameraSettingsRef = cameraSettingsRef;
 }
@@ -161,20 +167,18 @@ void UIManager::Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backB
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+
     ImGui::PushFont(m_DefaultFont);
-
     DrawImGui();
-
     ImGui::PopFont();
+
     ImGui::Render();
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
     barrier.Transition.pResource = backBuffer;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
     cmdList->ResourceBarrier(1, &barrier);
@@ -193,7 +197,7 @@ void UIManager::DrawViewports()
         // Begin the window
         std::string viewportName = "Viewport##" + std::to_string(handle);
         ImGui::SetNextWindowSize(ImVec2(1280, 720), ImGuiCond_FirstUseEver);
-        if (ImGui::Begin(viewportName.c_str(), &vp.m_Open, ImGuiWindowFlags_NoScrollbar))
+        if (ImGui::Begin(viewportName.c_str(), &vp.m_Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBringToFrontOnFocus))
         {
             float cursorY = ImGui::GetCursorPosY();
 
@@ -296,12 +300,12 @@ std::string UIManager::GetDefaultViewName()
 
 bool UIManager::DockspaceLayoutEnabled()
 {
-    return m_UISettings.m_DockSpace.GetValueRef();
+    return m_UISettingsRef->m_DockSpace.GetValueRef();
 }
 
 void UIManager::DrawImGui()
 {
-    if (m_UISettings.m_DockSpace.GetValueRef())
+    if (m_UISettingsRef->m_DockSpace.GetValueRef())
     {
         ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
     }
@@ -311,8 +315,10 @@ void UIManager::DrawImGui()
         ImGui::ShowDemoWindow(&m_ActiveWindows.m_ShowDemoWindow);
     }
 
-    MainMenuBar();
-    SettingsWindow();
+    DrawMainMenuBar();
+    DrawSettingsWindow();
+    DrawSceneHierarchy();
+    DrawEntityInspector();
     DrawViewports();
 }
 
@@ -323,7 +329,7 @@ void UIManager::CleanUp()
     DestroyClosedViewports();
 }
 
-void UIManager::MainMenuBar()
+void UIManager::DrawMainMenuBar()
 {
     if (ImGui::BeginMainMenuBar())
     {
@@ -366,53 +372,288 @@ void UIManager::MainMenuBar()
         {
             if (ImGui::MenuItem("Add Viewport")) CreateViewport();
             ImGui::Separator();
-            if (ImGui::MenuItem("Show Demo")) m_ActiveWindows.m_ShowDemoWindow = !m_ActiveWindows.m_ShowDemoWindow;
+            if (ImGui::MenuItem("Demo")) m_ActiveWindows.m_ShowDemoWindow = !m_ActiveWindows.m_ShowDemoWindow;
+            ImGui::Separator();
+            if (ImGui::MenuItem("Scene Hierarchy")) m_ActiveWindows.m_HierarchyWindow = !m_ActiveWindows.m_HierarchyWindow;
+            ImGui::Separator();
+            if (ImGui::MenuItem("Inspector")) m_ActiveWindows.m_InspectorWindow = !m_ActiveWindows.m_InspectorWindow;
             ImGui::EndMenu();
         }
     }
     ImGui::EndMainMenuBar();
 }
 
-void UIManager::SettingsWindow()
+void UIManager::DrawSettingsWindow()
 {
-    if (m_ActiveWindows.m_SettingsWindow)
+    if (!m_ActiveWindows.m_SettingsWindow)
     {
-        ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiCond_FirstUseEver);
-        if (ImGui::Begin("Settings", &m_ActiveWindows.m_SettingsWindow, ImGuiWindowFlags_MenuBar))
+        return;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("Settings", &m_ActiveWindows.m_SettingsWindow))
+    {
+        std::unordered_map<std::string, PropertyConfig*> settingsPageMap =
         {
-            std::unordered_map<std::string, PropertyConfig*> settingsPageMap =
-            {
-                { "UI", &m_UISettings },
-                { "Camera", m_CameraSettingsRef.get()},
-                { "Render", m_RenderSettingsRef.get()}
-            };
+            { "UI", m_UISettingsRef.get()},
+            { "Camera", m_CameraSettingsRef.get()},
+            { "Render", m_RenderSettingsRef.get()}
+        };
 
-            // Left
-            static std::string selected = settingsPageMap.size() > 0 ? settingsPageMap.begin()->first : "";
-            {
-                ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
+        // Left
+        static std::string selected = settingsPageMap.size() > 0 ? settingsPageMap.begin()->first : "";
+        {
+            ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
 
-                for (auto& it : settingsPageMap)
+            for (auto& it : settingsPageMap)
+            {
+                std::string categoryName = it.first;
+                if (ImGui::Selectable(categoryName.c_str(), selected == categoryName))
                 {
-                    std::string categoryName = it.first;
-                    if (ImGui::Selectable(categoryName.c_str(), selected == categoryName))
-                    {
-                        selected = categoryName;
-                    }
+                    selected = categoryName;
                 }
-                ImGui::EndChild();
             }
-            ImGui::SameLine();
-
-            // Right
-            // call settings page function
-            ImGui::BeginGroup();
-            ImGui::BeginChild("item view", ImVec2(0, -ImGui::GetFrameHeightWithSpacing())); // Leave room for 1 line below us
-            DrawPropertyConfig(*settingsPageMap[selected]);
             ImGui::EndChild();
-            ImGui::EndGroup();
         }
+        ImGui::SameLine();
+
+        // Right
+        // call settings page function
+        ImGui::BeginGroup();
+        ImGui::BeginChild("item view", ImVec2(0, -ImGui::GetFrameHeightWithSpacing())); // Leave room for 1 line below us
+        DrawPropertyConfig(*settingsPageMap[selected]);
+        ImGui::EndChild();
+        ImGui::EndGroup();
+    }
+    ImGui::End();
+}
+
+void UIManager::DrawSceneHierarchy()
+{
+    if (!ImGui::Begin("Hierarchy", &m_ActiveWindows.m_HierarchyWindow, ImGuiWindowFlags_MenuBar))
+    {
         ImGui::End();
+        return;
+    }
+
+    if (ImGui::BeginMenuBar())
+    {        
+        if (ImGui::Button("Add Entity"))
+        { 
+            AddEntity();
+            //ImGui::EndMenu();
+        }
+        if (ImGui::Button("Delete Entity"))
+        { 
+            DeleteEntity(); 
+            //ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+    }
+
+    for (EntityHandle entity : EntityView<>(m_EntityAdmin))
+    {
+        u32 entityID = m_EntityAdmin->GetEntityIndex(entity);
+        if (m_EntityAdmin->IsEntityValid(entityID))
+        {
+            std::string label = "Entity " + std::to_string(entityID);
+            ImGui::PushID(entityID);
+            if (ImGui::Selectable(label.c_str(), entity == m_SelectedEntity))
+            {
+                m_SelectedEntity = entity;
+                m_ActiveWindows.m_InspectorWindow = true;
+            }
+            ImGui::PopID();
+        }
+    }
+    ImGui::End();
+}
+
+void UIManager::DrawEntityInspector()
+{
+    if (!m_ActiveWindows.m_InspectorWindow)
+    {
+        return;
+    }
+
+    if (ImGui::Begin("Inspector", &m_ActiveWindows.m_InspectorWindow, ImGuiWindowFlags_AlwaysVerticalScrollbar))
+    {
+        if (!m_EntityAdmin->IsEntityValid(m_SelectedEntity))
+        {
+            ImGui::End();
+            return;
+        }
+
+        std::string entityName = "Entity " + std::to_string(m_EntityAdmin->GetEntityIndex(m_SelectedEntity));
+        std::string entityId = "ID: " + std::to_string(m_SelectedEntity);
+        std::string entityVersion = "Ver: " + std::to_string(m_EntityAdmin->GetEntityVersion(m_SelectedEntity));
+        ImGui::Text(entityName.c_str());
+        ImGui::TextDisabled(entityId.c_str()); ImGui::SameLine(); ImGui::TextDisabled(entityVersion.c_str());
+        
+        // components
+        if (TransformComponent* transformComponent = m_EntityAdmin->GetComponent<TransformComponent>(m_SelectedEntity))
+        {
+            ImGui::BeginChild("Transform Child", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+            // Push object ID after we entered the table, so table is shared for all objects
+            ImGui::Text("Transform Component");
+            ImGui::Separator();
+            if (ImGui::BeginTable("##properties", 2, ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoHostExtendY))
+            {
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 2.0f); // Default twice larger
+                MemberInfo memberInfo;
+                memberInfo = { "Position", ImGuiDataType_Float, 3, (void*)&transformComponent->m_Position };
+                DrawPropertyData(memberInfo);
+                memberInfo = { "Scale",    ImGuiDataType_Float, 3, (void*)&transformComponent->m_Scale };
+                DrawPropertyData(memberInfo);
+                memberInfo = { "Rotation", ImGuiDataType_Float, 3, (void*)&transformComponent->m_Rotation };
+                DrawPropertyData(memberInfo);
+                ImGui::EndTable();
+            }
+            ImGui::EndChild();
+        }
+
+        if (ModelComponent* modelComponent = m_EntityAdmin->GetComponent<ModelComponent>(m_SelectedEntity))
+        {
+            ImGui::BeginChild("Model Child", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+            // Push object ID after we entered the table, so table is shared for all objects
+            ImGui::Text("Model Component");
+            ImGui::Separator();
+            if (ImGui::BeginTable("##properties", 2, ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoHostExtendY))
+            {
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 2.0f); // Default twice larger
+                ImGui::AlignTextToFramePadding();
+                ImGui::TableNextColumn();
+
+                ImGui::TextUnformatted("Render Model");
+                ImGui::TableNextColumn();
+
+                RenderModel* componentModelRef = modelComponent->m_RenderModel;
+                const std::vector<std::unique_ptr<RenderModel>>& renderModels = m_Renderer->GetRenderModels();
+
+                const char* label = componentModelRef ? componentModelRef->m_DebugName.c_str() : "";
+                if (ImGui::BeginCombo("", label))
+                {
+                    for (int n = 0; n < renderModels.size(); n++)
+                    {
+                        const bool is_selected = renderModels[n].get() == componentModelRef;
+                        if (ImGui::Selectable(renderModels[n]->m_DebugName.c_str(), is_selected))
+                        {
+                            modelComponent->m_RenderModel = renderModels[n].get();
+                        }
+
+                        // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                        if (is_selected)
+                        {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+
+
+                ImGui::EndTable();
+            }
+            ImGui::EndChild();
+        }
+    }
+    ImGui::End();
+
+}
+
+void UIManager::AddEntity()
+{
+    m_SelectedEntity = m_EntityAdmin->CreateEntity();
+    m_EntityAdmin->AddComponent<TransformComponent>(m_SelectedEntity);
+    m_EntityAdmin->AddComponent<ModelComponent>(m_SelectedEntity);
+}
+
+void UIManager::DeleteEntity()
+{
+    if (m_EntityAdmin->IsEntityValid(m_SelectedEntity))
+    {
+        m_EntityAdmin->DestroyEntity(m_SelectedEntity);
+        m_SelectedEntity = -1;
+    }
+}
+
+void UIManager::DrawPropertyData(const MemberInfo& memberInfo)
+{
+    ImGui::TableNextRow();
+    ImGui::PushID(memberInfo.m_Name);
+    ImGui::TableNextColumn();
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(memberInfo.m_Name);
+    ImGui::TableNextColumn();
+    switch (memberInfo.m_DataType)
+    {
+    case ImGuiDataType_Bool:
+    {
+        IM_ASSERT(memberInfo.m_PropertyCount == 1);
+        ImGui::Checkbox("##Editor", (bool*)memberInfo.m_Data);
+        break;
+    }
+    case ImGuiDataType_S32:
+    {
+        int v_min = INT_MIN, v_max = INT_MAX;
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::DragScalarN("##Editor", memberInfo.m_DataType, memberInfo.m_Data, memberInfo.m_PropertyCount, 1.0f, &v_min, &v_max);
+        break;
+    }
+    case ImGuiDataType_Float:
+    {
+        float v_min = -FLT_MAX, v_max = FLT_MAX;
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::DragScalarN("##Editor", memberInfo.m_DataType, memberInfo.m_Data, memberInfo.m_PropertyCount, c_DragSpeed, &v_min, &v_max);
+        break;
+    }
+    case ImGuiDataType_String:
+    {
+        ImGui::InputText("##Editor", reinterpret_cast<char*>(memberInfo.m_Data), 28);
+        break;
+    }
+    }
+    ImGui::PopID();
+}
+
+void UIManager::DrawColouredVec3(vec3& vec)
+{
+    float3 f = VecToFloat3(vec);
+    char axis[3] = { 'x', 'y', 'z' };
+    ImColor colour[3] = { ImColor(1,0,0), ImColor(0,1,0), ImColor(0,0,1) };
+    int id = 0;
+    for (int i = 0; i < 3; i++)
+    {
+        ImGui::PushID(id++);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::PushStyleVar(ImGuiCol_SliderGrab, colour[i]);
+        ImGui::DragFloat("", &vec.m128_f32[i], c_DragSpeed);
+        ImGui::PopID();
+
+        if (i != 3)
+        {
+            ImGui::SameLine();
+        }
+    }
+}
+
+void UIManager::DrawColouredVec4(vec4& vec)
+{
+    float3 f = VecToFloat3(vec);
+    char axis[3] = { 'x', 'y', 'z' };
+    //ImColor colour[3] = { 'x', 'y', 'z' };
+    int id = 0;
+    for (int i = 0; i < 3; i++)
+    {
+        ImGui::PushID(id++);
+        ImGui::DragFloat(":x", &vec.m128_f32[0], c_DragSpeed);
+        ImGui::PopID();
+
+        if (i != 3)
+        {
+            ImGui::SameLine();
+        }
     }
 }
 

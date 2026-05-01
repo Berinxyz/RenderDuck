@@ -2,6 +2,8 @@
 #include "EngineCore.h"
 #include "EngineUtils.h"
 
+#include "ECS/EntityForwardDeclarations.h"
+
 #include "Settings.h"
 #include "RenderSettings.h"
 #include "CameraSettings.h"
@@ -33,6 +35,7 @@ struct ViewportTexture
 	std::string m_DebugName;
 };
 
+class Renderer;
 class UIManager
 {
 public:
@@ -44,17 +47,21 @@ public:
 		ActiveWindows()
 			: m_ShowDemoWindow(false)
 			, m_SettingsWindow(false)
+			, m_HierarchyWindow(false)
+			, m_InspectorWindow(false)
 		{
 		}
 
 		bool m_SettingsWindow;
+		bool m_HierarchyWindow;
+		bool m_InspectorWindow;
 		bool m_ShowDemoWindow;
 	};
 
 	void InitStyle();
 
 	void InitialiseForDX12(HWND window, ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12DescriptorHeap* descriptorHeap, int swapchainBufferCount);
-	void InitSettingsObjects(std::shared_ptr<RenderSettings> renderSettingsRef, std::shared_ptr<CameraSettings> cameraSettingsRef);
+	void InitObjects(Renderer* renderer, EntityAdminRef entityAdmin, std::shared_ptr<RenderSettings> renderSettingsRef, std::shared_ptr<CameraSettings> cameraSettingsRef);
 
 	void Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer);
 
@@ -66,24 +73,47 @@ public:
 
 private:
 
-	void DrawImGui();
+	const float c_DragSpeed = 0.01;
 
-	UISettings m_UISettings;
+	Renderer* m_Renderer;
+	std::shared_ptr<EntityAdmin> m_EntityAdmin;
+	EntityHandle m_SelectedEntity;
+
+	std::shared_ptr<UISettings> m_UISettingsRef;
 	std::shared_ptr<RenderSettings> m_RenderSettingsRef;
 	std::shared_ptr<CameraSettings> m_CameraSettingsRef;
 
-	void CleanUp();
 	// UI Draw functions
+	void DrawImGui();
 	void DrawViewports();
 	void DestroyClosedViewports();
-	void MainMenuBar();
-	void SettingsWindow();
+	void DrawMainMenuBar();
+	void DrawSettingsWindow();
+	void DrawSceneHierarchy();
+	void DrawEntityInspector();
 
+	void AddEntity();
+	void DeleteEntity();
+	
+	// imgui utility
+	struct MemberInfo
+	{
+		const char* m_Name;       
+		ImGuiDataType m_DataType;
+		u32 m_PropertyCount;
+		void* m_Data;
+	};
+
+	void DrawPropertyData(const MemberInfo& memberInfo);
+	void DrawColouredVec3(vec3& vec);
+	void DrawColouredVec4(vec4& vec);
 	void DrawProperty(IProperty* property);
 	void DrawPropertyConfig(PropertyConfig& propertyConfig);
 
 	// XML
 	void SaveSettings();
+
+	void CleanUp();
 
 	// Utility Functions
 	ViewportTextureHandle GetViewportTextureHandle(std::string debugName);

@@ -31,9 +31,14 @@ public:
         return m_ComponentData + index * m_ComponentSizeBytes;
     }
 
+    void Increment() { ++m_ComponentCount; }
+    void Decrement() { --m_ComponentCount; }
+    u32 Count() { return m_ComponentCount; }
+
 private:
     char* m_ComponentData{ nullptr };
     u32 m_ComponentSizeBytes { 0 };
+    u32 m_ComponentCount { 0 };
 };
 typedef std::shared_ptr<ComponentPool> ComponentPoolRef;
 
@@ -46,48 +51,30 @@ public:
     TransformComponent()
     {
         m_Position = DirectX::XMVectorZero();
-        m_Scale = DirectX::XMVectorZero();
+        m_Scale = Vec4Make(1, 1, 1, 1);
         m_Rotation = DirectX::XMVectorZero();
     }
     ~TransformComponent() {}
 
-    void SetPosition(const vec3 & pos)
-    {
-        m_Position = pos;
-    }
-
-    void SetRotation(const quat & rot)
-    {
-        m_Rotation = rot;
-    }
-
-    void SetScale(const vec3 & scl)
-    {
-        m_Scale = scl;
-    }
-
     mtx44 GetTransformMatrix() const {
-        using namespace DirectX;
-
         // Compose the transform
-        return DirectX::XMMatrixAffineTransformation(m_Scale, XMVectorZero(), m_Rotation, m_Position);
+        return DirectX::XMMatrixAffineTransformation(m_Scale, DirectX::XMVectorZero(), m_Rotation, m_Position);
     }
 
-private:
     vec3 m_Position;
     quat m_Rotation;
     vec3 m_Scale;
+
 };
-
-
 
 /// <summary>
 /// MESH COMPONENT
 /// </summary>
-class MeshComponent : public Component
+class RenderModel;
+class ModelComponent : public Component
 {
 public:
-    vec3 m_Data;
+    RenderModel* m_RenderModel;
 };
 
 

@@ -20,6 +20,17 @@ using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 using namespace DirectX::PackedVector;
 
+
+enum class RenderLayer : int
+{
+    Opaque = 0,
+    Textured,
+    Grid,
+    Debug,
+    Sky,
+    Count
+};
+
 struct RenderModel
 {
     RenderModel() = default;
@@ -51,16 +62,17 @@ struct RenderModel
     UINT m_IndexCount = 0;
     UINT m_StartIndexLocation = 0;
     int m_BaseVertexLocation = 0;
+
+    RenderLayer m_RenderLayer = RenderLayer::Count;
+
+    std::string m_DebugName;
 };
 
-enum class RenderLayer : int
+struct RenderModelInstance
 {
-    Opaque = 0,
-    Textured,
-    Grid,
-    Debug,
-    Sky,
-    Count
+    XMFLOAT4X4 m_World = MathHelper::Identity4x4();
+    XMFLOAT4X4 m_TexTransform = MathHelper::Identity4x4();
+    RenderModel* m_RenderModel;
 };
 
 class Renderer : public D3DApp
@@ -75,7 +87,9 @@ public:
 
     virtual bool Initialize()override;
 
-    // render setting
+
+    const std::vector<std::unique_ptr<RenderModel>>& GetRenderModels() { return m_AllRenderModels; };
+    void AddRenderModelInstance(RenderModel* renderModel) {};
 
 private:
     virtual void CreateRtvAndDsvDescriptorHeaps()override;
