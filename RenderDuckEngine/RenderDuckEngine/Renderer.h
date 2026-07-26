@@ -89,7 +89,7 @@ public:
 
 
     const std::vector<std::unique_ptr<RenderModel>>& GetRenderModels() { return m_AllRenderModels; };
-    void AddRenderModelInstance(RenderModel* renderModel) {};
+    void AddRenderModelInstance(RenderModel* renderModel);
 
 private:
     virtual void CreateRtvAndDsvDescriptorHeaps()override;
@@ -211,6 +211,9 @@ private:
     XMFLOAT4X4 m_LightView = MathHelper::Identity4x4();
     XMFLOAT4X4 m_LightProj = MathHelper::Identity4x4();
     XMFLOAT4X4 m_ShadowTransform = MathHelper::Identity4x4();
+
+    vec3 m_CubePosition;
+    float m_CubeRotation;
 
     float m_LightRotationAngle = 0.0f;
     XMFLOAT3 m_BaseLightDirections[3] = {

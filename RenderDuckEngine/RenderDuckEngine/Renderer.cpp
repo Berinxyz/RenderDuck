@@ -76,6 +76,9 @@ bool Renderer::Initialize()
     BuildFrameResources();
     BuildPSOs();
 
+    m_CubePosition = Vec3Make(0.0f, 0.5f, 0.0f);
+    m_CubeRotation = 0.0f;
+
     m_Ssao->SetPSOs(m_PSOs["ssao"].Get(), m_PSOs["ssaoBlur"].Get());
 
     m_UIManager = std::make_shared<UIManager>();
@@ -292,7 +295,8 @@ void Renderer::Update(const GameTimer& gt)
     // Animate the lights (and hence shadows).
     //
 
-    m_LightRotationAngle += 0.1f*gt.DeltaTime();
+    m_LightRotationAngle += 0.2f * gt.DeltaTime();
+    m_CubeRotation += 0.2f*gt.DeltaTime();
 
     XMMATRIX R = XMMatrixRotationY(m_LightRotationAngle);
     for(int i = 0; i < 3; ++i)
@@ -300,6 +304,18 @@ void Renderer::Update(const GameTimer& gt)
         XMVECTOR lightDir = XMLoadFloat3(&m_BaseLightDirections[i]);
         lightDir = XMVector3TransformNormal(lightDir, R);
         XMStoreFloat3(&m_RotatedLightDirections[i], lightDir);
+    }
+
+    m_CubeRotation += 1.0f* gt.DeltaTime();
+    RenderModel* renderModel = m_RenderModelGroups[(int)RenderLayer::Textured][0];
+    XMMATRIX worldMat = XMLoadFloat4x4(&renderModel->m_World);
+    worldMat *= XMMatrixTranslation(0, sin(gt.TotalTime()) * gt.DeltaTime(), 0);
+    worldMat *= XMMatrixRotationY(1.0f * gt.DeltaTime());
+    XMStoreFloat4x4(&(renderModel->m_World), worldMat);
+    m_RenderModelGroups[(int)RenderLayer::Textured][0]->m_NumFramesDirty = 1;
+    for (auto entity : EntityView<ModelComponent>(m_EntityAdmin))
+    {
+         
     }
 
 	UpdateObjectCBs(gt);
@@ -1567,7 +1583,8 @@ void Renderer::BuildRenderModels()
     m_AllRenderModels.push_back(std::move(quadRitem));
     
 	auto boxRitem = std::make_unique<RenderModel>();
-	XMStoreFloat4x4(&boxRitem->m_World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
+	XMStoreFloat4x4(&boxRitem->m_World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 1.5f, 0.0f));
+	XMStoreFloat4x4(&boxRitem->m_World, XMMatrixIdentity());
 	XMStoreFloat4x4(&boxRitem->m_TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
     boxRitem->m_DebugName = "Box";
 	boxRitem->m_ObjCBIndex = cbIndex++;

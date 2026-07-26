@@ -74,7 +74,11 @@ class RenderModel;
 class ModelComponent : public Component
 {
 public:
+
+    ModelComponent() : m_RenderModel(nullptr), m_RenderModelIndex(-1) {};
+
     RenderModel* m_RenderModel;
+    u32 m_RenderModelIndex;
 };
 
 
